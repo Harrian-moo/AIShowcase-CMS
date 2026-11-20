@@ -17,6 +17,10 @@ function toBasicInfo(series: ProductSeries): SeriesBasicInfo {
     taglineZh: series.taglineZh,
     taglineEn: series.taglineEn,
     description: series.description,
+    imageUrl: series.imageUrl,
+    tasting: series.tasting,
+    origin: series.origin,
+    abv: series.abv,
     updatedAt: series.updatedAt,
   };
 }
@@ -56,10 +60,10 @@ export const seriesService = {
         taglineZh: payload.taglineZh,
         taglineEn: payload.taglineEn,
         description: payload.description,
-        imageUrl: existing.imageUrl,
-        tasting: existing.tasting,
-        origin: existing.origin,
-        abv: existing.abv,
+        imageUrl: payload.imageUrl,
+        tasting: payload.tasting,
+        origin: payload.origin,
+        abv: payload.abv,
       });
       return toBasicInfo(updated);
     }
@@ -146,11 +150,15 @@ export const seriesService = {
             taglineZh: payload.taglineZh,
             taglineEn: payload.taglineEn,
             description: payload.description,
+            imageUrl: payload.imageUrl,
+            tasting: payload.tasting,
+            origin: payload.origin,
+            abv: payload.abv,
           } satisfies UpdateSeriesBasicInfoPayload,
         }
       );
 
-      // Phase 1 keeps images, tasting data, origin, ABV and SKUs in Mock storage.
+      // SKU data remains in Mock storage until its own backend phase.
       const savedMock = await mockBackend.updateSeries(deviceId, seriesId, {
         ...payload,
         ...savedBasic,

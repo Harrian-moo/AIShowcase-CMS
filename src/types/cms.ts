@@ -51,6 +51,10 @@ export interface SeriesBasicInfo {
   taglineZh: string;
   taglineEn: string;
   description: string;
+  imageUrl: string;
+  tasting: TastingNotes;
+  origin: string;
+  abv: string;
   updatedAt: string;
 }
 
@@ -60,6 +64,10 @@ export interface UpdateSeriesBasicInfoPayload {
   taglineZh: string;
   taglineEn: string;
   description: string;
+  imageUrl: string;
+  tasting: TastingNotes;
+  origin: string;
+  abv: string;
 }
 
 export type DeviceConnectionStatus = 'online' | 'offline';

@@ -105,7 +105,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     setErrorMessage('');
     setImageProcessNotice('');
     try {
-      const uploaded = await mediaService.uploadImage(file);
+      const uploaded = await mediaService.uploadSeriesImage(file);
       setOriginalImageBeforeProcess(null);
       updateDraftField('imageUrl', uploaded.url);
     } catch (error) {
