@@ -8,6 +8,7 @@ const rawBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').trim();
 
 export const API_CONFIG = {
   baseUrl: rawBaseUrl.replace(/\/+$/, ''),
+  useRealSeriesApi: import.meta.env.VITE_USE_REAL_SERIES_API === 'true',
   useMockApi: import.meta.env.VITE_USE_MOCK_API !== 'false',
   timeoutMs: 15000,
 } as const;

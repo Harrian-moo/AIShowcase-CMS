@@ -8,13 +8,14 @@ import { DeviceManagementPage } from './pages/DeviceManagementPage';
 import { LoginPage } from './pages/LoginPage';
 import { SeriesDetailPage } from './pages/SeriesDetailPage';
 import { SkuManagementPage } from './pages/SkuManagementPage';
-import { authService, deviceService, seriesService } from './services';
+import { API_CONFIG, authService, deviceService, seriesService } from './services';
 import {
   AuthSession,
   CmsWorkspaceView,
   CreateSeriesPayload,
   ProductSeries,
   ProductSku,
+  SeriesBasicInfo,
   ShowcaseDevice,
   StandbyCarouselConfig,
 } from './types/cms';
@@ -25,6 +26,20 @@ function pickDefaultSeriesId(seriesList: ProductSeries[], preferredId?: string):
   }
   const club = seriesList.find((item) => item.id === 'club');
   return club ? club.id : (seriesList[0]?.id ?? '');
+}
+
+function mergeSeriesBasicInfo(
+  devices: ShowcaseDevice[],
+  basicSeries: SeriesBasicInfo[]
+): ShowcaseDevice[] {
+  const basicById = new Map(basicSeries.map((series) => [series.id, series]));
+  return devices.map((device) => ({
+    ...device,
+    series: device.series.map((series) => {
+      const basic = basicById.get(series.id);
+      return basic ? { ...series, ...basic } : series;
+    }),
+  }));
 }
 
 export default function App() {
@@ -49,7 +64,14 @@ export default function App() {
     setIsLoadingDevices(true);
     setLoadError('');
     try {
-      const data = await deviceService.listDevices();
+      const mockDevices = await deviceService.listDevices();
+      const data =
+        API_CONFIG.useRealSeriesApi && mockDevices[0]
+          ? mergeSeriesBasicInfo(
+              mockDevices,
+              await seriesService.listBasicSeries(mockDevices[0].id)
+            )
+          : mockDevices;
       setDevices(data);
 
       const resolvedDevice =

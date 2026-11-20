@@ -2,12 +2,76 @@ import { mockBackend } from '../mocks/mockBackend';
 import {
   CreateSeriesPayload,
   ProductSeries,
+  SeriesBasicInfo,
+  UpdateSeriesBasicInfoPayload,
   UpdateSeriesPayload,
 } from '../types/cms';
 import { API_CONFIG } from './config';
 import { httpRequest } from './httpClient';
 
+function toBasicInfo(series: ProductSeries): SeriesBasicInfo {
+  return {
+    id: series.id,
+    name: series.name,
+    subtitle: series.subtitle,
+    taglineZh: series.taglineZh,
+    taglineEn: series.taglineEn,
+    description: series.description,
+    updatedAt: series.updatedAt,
+  };
+}
+
 export const seriesService = {
+  async listBasicSeries(deviceId: string): Promise<SeriesBasicInfo[]> {
+    if (!API_CONFIG.useRealSeriesApi) {
+      const series = await mockBackend.listSeries(deviceId);
+      return series.map(toBasicInfo);
+    }
+    return httpRequest<SeriesBasicInfo[]>('/series', { method: 'GET' });
+  },
+
+  async getBasicSeries(
+    deviceId: string,
+    seriesId: string
+  ): Promise<SeriesBasicInfo> {
+    if (!API_CONFIG.useRealSeriesApi) {
+      return toBasicInfo(await mockBackend.getSeriesById(deviceId, seriesId));
+    }
+    return httpRequest<SeriesBasicInfo>(
+      `/series/${encodeURIComponent(seriesId)}`,
+      { method: 'GET' }
+    );
+  },
+
+  async updateBasicSeries(
+    deviceId: string,
+    seriesId: string,
+    payload: UpdateSeriesBasicInfoPayload
+  ): Promise<SeriesBasicInfo> {
+    if (!API_CONFIG.useRealSeriesApi) {
+      const existing = await mockBackend.getSeriesById(deviceId, seriesId);
+      const updated = await mockBackend.updateSeries(deviceId, seriesId, {
+        name: payload.name,
+        subtitle: payload.subtitle,
+        taglineZh: payload.taglineZh,
+        taglineEn: payload.taglineEn,
+        description: payload.description,
+        imageUrl: existing.imageUrl,
+        tasting: existing.tasting,
+        origin: existing.origin,
+        abv: existing.abv,
+      });
+      return toBasicInfo(updated);
+    }
+    return httpRequest<SeriesBasicInfo>(
+      `/series/${encodeURIComponent(seriesId)}`,
+      {
+        method: 'PUT',
+        body: payload,
+      }
+    );
+  },
+
   async listSeries(deviceId: string): Promise<ProductSeries[]> {
     if (API_CONFIG.useMockApi) {
       return mockBackend.listSeries(deviceId);
@@ -49,6 +113,28 @@ export const seriesService = {
     seriesId: string,
     payload: UpdateSeriesPayload
   ): Promise<ProductSeries> {
+    if (API_CONFIG.useRealSeriesApi) {
+      const savedBasic = await httpRequest<SeriesBasicInfo>(
+        `/series/${encodeURIComponent(seriesId)}`,
+        {
+          method: 'PUT',
+          body: {
+            name: payload.name,
+            subtitle: payload.subtitle,
+            taglineZh: payload.taglineZh,
+            taglineEn: payload.taglineEn,
+            description: payload.description,
+          } satisfies UpdateSeriesBasicInfoPayload,
+        }
+      );
+
+      // Phase 1 keeps images, tasting data, origin, ABV and SKUs in Mock storage.
+      const savedMock = await mockBackend.updateSeries(deviceId, seriesId, {
+        ...payload,
+        ...savedBasic,
+      });
+      return { ...savedMock, ...savedBasic };
+    }
     if (API_CONFIG.useMockApi) {
       return mockBackend.updateSeries(deviceId, seriesId, payload);
     }

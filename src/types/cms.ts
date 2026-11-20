@@ -44,6 +44,24 @@ export interface ProductSeries {
   skus: ProductSku[];
 }
 
+export interface SeriesBasicInfo {
+  id: string;
+  name: string;
+  subtitle: string;
+  taglineZh: string;
+  taglineEn: string;
+  description: string;
+  updatedAt: string;
+}
+
+export interface UpdateSeriesBasicInfoPayload {
+  name: string;
+  subtitle: string;
+  taglineZh: string;
+  taglineEn: string;
+  description: string;
+}
+
 export type DeviceConnectionStatus = 'online' | 'offline';
 
 export type AdVisualStyle =
