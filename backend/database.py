@@ -4,6 +4,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -124,6 +125,32 @@ def get_series(series_id: str) -> dict[str, Any] | None:
             (series_id,),
         ).fetchone()
     return _row_to_series(row) if row else None
+
+
+def create_series(payload: dict[str, str]) -> dict[str, Any]:
+    series_id = f"series-{uuid4().hex[:12]}"
+    updated_at = datetime.now(timezone.utc).isoformat()
+    with get_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO product_series (
+                id, name, subtitle, tagline_zh, tagline_en, description, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                series_id,
+                payload["name"],
+                payload["subtitle"],
+                payload["taglineZh"],
+                payload["taglineEn"],
+                payload["description"],
+                updated_at,
+            ),
+        )
+    created = get_series(series_id)
+    if created is None:
+        raise RuntimeError("Created product series could not be read back")
+    return created
 
 
 def update_series(series_id: str, payload: dict[str, str]) -> dict[str, Any] | None:

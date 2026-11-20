@@ -167,6 +167,8 @@ export interface LoginRequestPayload {
 }
 
 export interface CreateSeriesPayload {
+  /** Internal ID used to keep the phase-1 Mock shell aligned with SQLite. */
+  id?: string;
   name: string;
   taglineEn?: string;
   taglineZh?: string;

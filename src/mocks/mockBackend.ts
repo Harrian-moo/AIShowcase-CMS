@@ -269,7 +269,7 @@ export const mockBackend = {
     const timestamp = formatTimestamp();
 
     const created: ProductSeries = {
-      id: `series-${Date.now()}`,
+      id: payload.id ?? `series-${Date.now()}`,
       name,
       taglineEn: payload.taglineEn?.trim().toUpperCase() || 'HERITAGE',
       taglineZh: payload.taglineZh?.trim() || localized('典藏风范', 'SIGNATURE RESERVE'),

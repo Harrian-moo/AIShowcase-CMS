@@ -96,6 +96,28 @@ export const seriesService = {
     deviceId: string,
     payload: CreateSeriesPayload
   ): Promise<ProductSeries> {
+    if (API_CONFIG.useRealSeriesApi) {
+      const createdBasic = await httpRequest<SeriesBasicInfo>('/series', {
+        method: 'POST',
+        body: {
+          name: payload.name,
+          subtitle: payload.subtitle ?? '',
+          taglineZh: payload.taglineZh ?? '',
+          taglineEn: payload.taglineEn ?? '',
+          description: payload.description ?? '',
+        },
+      });
+      const createdMock = await mockBackend.createSeries(deviceId, {
+        ...payload,
+        id: createdBasic.id,
+        name: createdBasic.name,
+        subtitle: createdBasic.subtitle,
+        taglineZh: createdBasic.taglineZh,
+        taglineEn: createdBasic.taglineEn,
+        description: createdBasic.description,
+      });
+      return { ...createdMock, ...createdBasic };
+    }
     if (API_CONFIG.useMockApi) {
       return mockBackend.createSeries(deviceId, payload);
     }
