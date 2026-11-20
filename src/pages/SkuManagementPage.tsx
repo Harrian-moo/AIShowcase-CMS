@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { SkuEditorSheet } from '../components/SkuEditorSheet';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -35,6 +35,24 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
   const [isCreatingNew, setIsCreatingNew] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+
+  useEffect(() => {
+    let isCancelled = false;
+    setErrorMessage('');
+    skuService
+      .listSkusBySeries(deviceId, series.id)
+      .then((skus) => {
+        if (!isCancelled) onSeriesSkusChanged(series.id, skus);
+      })
+      .catch((error) => {
+        if (!isCancelled) {
+          setErrorMessage(localizeError(error, t.sku.loadErrorFallback));
+        }
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, [deviceId, series.id]);
 
   const sortedAndFilteredSkus = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -143,7 +161,7 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
 
   const handleUploadImage = async (file: File): Promise<string> => {
     try {
-      const result = await mediaService.uploadImage(file);
+      const result = await mediaService.uploadSkuImage(file);
       return result.url;
     } catch (error) {
       throw new ApiError(localizeError(error, t.sku.uploadErrorFallback));
@@ -241,9 +259,6 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
             <h1 className="font-luxury text-[42px] leading-tight text-[#141414] mt-1.5 font-semibold tracking-[0.01em]">
               {t.sku.pageTitle}
             </h1>
-            <p className="text-[14px] text-[#8E816C] mt-1.5 tabular-nums">
-              {t.sku.pageSubtitle(series.skus.length)}
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">

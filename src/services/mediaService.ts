@@ -20,6 +20,18 @@ export const mediaService = {
     });
   },
 
+  async uploadSkuImage(file: File): Promise<UploadMediaResult> {
+    if (!API_CONFIG.useRealSkuApi) {
+      return mockBackend.uploadImage(file);
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    return httpRequest<UploadMediaResult>('/media/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
   async uploadImage(file: File): Promise<UploadMediaResult> {
     if (API_CONFIG.useMockApi) {
       return mockBackend.uploadImage(file);

@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
@@ -7,7 +8,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from .database import create_series, get_series, init_database, list_series, update_series
+from .database import (
+    create_series,
+    create_sku,
+    delete_sku,
+    get_series,
+    init_database,
+    list_series,
+    list_skus,
+    update_series,
+    update_sku,
+)
 
 
 class TastingNotes(BaseModel):
@@ -66,6 +77,45 @@ class UploadMediaResult(BaseModel):
     filename: str
 
 
+class SkuInfo(BaseModel):
+    id: str
+    seriesId: str
+    skuCode: str
+    name: str
+    englishName: str
+    volume: str
+    abv: str
+    price: str
+    packaging: str
+    shelfSlot: str
+    status: Literal["active", "inactive"]
+    sortOrder: int
+    highlight: str
+    description: str
+    servingSuggestion: str
+    imageUrl: str
+    updatedAt: str
+
+
+class SkuPayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    skuCode: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=300)
+    englishName: str = Field(default="", max_length=300)
+    volume: str = Field(default="", max_length=100)
+    abv: str = Field(default="", max_length=100)
+    price: str = Field(default="", max_length=100)
+    packaging: str = Field(default="", max_length=200)
+    shelfSlot: str = Field(default="", max_length=100)
+    status: Literal["active", "inactive"] = "active"
+    sortOrder: int = Field(default=0, ge=0)
+    highlight: str = Field(default="", max_length=1000)
+    description: str = Field(default="", max_length=5000)
+    servingSuggestion: str = Field(default="", max_length=2000)
+    imageUrl: str = ""
+
+
 def detect_image_extension(content: bytes) -> str | None:
     if content.startswith(b"\x89PNG\r\n\x1a\n"):
         return ".png"
@@ -92,9 +142,14 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -160,3 +215,31 @@ def save_series_detail(series_id: str, payload: SeriesBasicInfoUpdate) -> dict:
     if series is None:
         raise HTTPException(status_code=404, detail="Product series not found")
     return series
+
+
+@app.get("/api/series/{series_id}/skus", response_model=list[SkuInfo])
+def read_sku_list(series_id: str) -> list[dict]:
+    if get_series(series_id) is None:
+        raise HTTPException(status_code=404, detail="Product series not found")
+    return list_skus(series_id)
+
+
+@app.post("/api/series/{series_id}/skus", response_model=SkuInfo, status_code=201)
+def create_sku_item(series_id: str, payload: SkuPayload) -> dict:
+    if get_series(series_id) is None:
+        raise HTTPException(status_code=404, detail="Product series not found")
+    return create_sku(series_id, payload.model_dump())
+
+
+@app.put("/api/series/{series_id}/skus/{sku_id}", response_model=SkuInfo)
+def save_sku_item(series_id: str, sku_id: str, payload: SkuPayload) -> dict:
+    sku = update_sku(series_id, sku_id, payload.model_dump())
+    if sku is None:
+        raise HTTPException(status_code=404, detail="SKU not found")
+    return sku
+
+
+@app.delete("/api/series/{series_id}/skus/{sku_id}", status_code=204)
+def remove_sku_item(series_id: str, sku_id: str) -> None:
+    if not delete_sku(series_id, sku_id):
+        raise HTTPException(status_code=404, detail="SKU not found")

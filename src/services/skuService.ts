@@ -9,11 +9,11 @@ import { httpRequest } from './httpClient';
 
 export const skuService = {
   async listSkusBySeries(deviceId: string, seriesId: string): Promise<ProductSku[]> {
-    if (API_CONFIG.useMockApi) {
+    if (!API_CONFIG.useRealSkuApi) {
       return mockBackend.listSkusBySeries(deviceId, seriesId);
     }
     return httpRequest<ProductSku[]>(
-      `/devices/${encodeURIComponent(deviceId)}/series/${encodeURIComponent(seriesId)}/skus`,
+      `/series/${encodeURIComponent(seriesId)}/skus`,
       { method: 'GET' }
     );
   },
@@ -23,11 +23,11 @@ export const skuService = {
     seriesId: string,
     payload: CreateSkuPayload
   ): Promise<ProductSku> {
-    if (API_CONFIG.useMockApi) {
+    if (!API_CONFIG.useRealSkuApi) {
       return mockBackend.createSku(deviceId, seriesId, payload);
     }
     return httpRequest<ProductSku>(
-      `/devices/${encodeURIComponent(deviceId)}/series/${encodeURIComponent(seriesId)}/skus`,
+      `/series/${encodeURIComponent(seriesId)}/skus`,
       {
         method: 'POST',
         body: payload,
@@ -41,13 +41,11 @@ export const skuService = {
     skuId: string,
     payload: UpdateSkuPayload
   ): Promise<ProductSku> {
-    if (API_CONFIG.useMockApi) {
+    if (!API_CONFIG.useRealSkuApi) {
       return mockBackend.updateSku(deviceId, seriesId, skuId, payload);
     }
     return httpRequest<ProductSku>(
-      `/devices/${encodeURIComponent(deviceId)}/series/${encodeURIComponent(
-        seriesId
-      )}/skus/${encodeURIComponent(skuId)}`,
+      `/series/${encodeURIComponent(seriesId)}/skus/${encodeURIComponent(skuId)}`,
       {
         method: 'PUT',
         body: payload,
@@ -60,13 +58,11 @@ export const skuService = {
     seriesId: string,
     skuId: string
   ): Promise<void> {
-    if (API_CONFIG.useMockApi) {
+    if (!API_CONFIG.useRealSkuApi) {
       return mockBackend.deleteSku(deviceId, seriesId, skuId);
     }
     return httpRequest<void>(
-      `/devices/${encodeURIComponent(deviceId)}/series/${encodeURIComponent(
-        seriesId
-      )}/skus/${encodeURIComponent(skuId)}`,
+      `/series/${encodeURIComponent(seriesId)}/skus/${encodeURIComponent(skuId)}`,
       { method: 'DELETE' }
     );
   },

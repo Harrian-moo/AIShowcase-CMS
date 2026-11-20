@@ -139,7 +139,7 @@ export interface TranslationDictionary {
     addSkuButton: string;
     eyebrow: (seriesName: string) => string;
     pageTitle: string;
-    pageSubtitle: (count: number) => string;
+    loadErrorFallback: string;
     searchPlaceholder: string;
     searchAria: string;
     filterAll: (count: number) => string;
@@ -552,8 +552,7 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       addSkuButton: '新增 SKU 商品',
       eyebrow: (seriesName) => `${seriesName} 系列产品清单`,
       pageTitle: 'SKU 商品管理',
-      pageSubtitle: (count) =>
-        `共 ${count} 款 · 上下滑动浏览，点击任意卡片编辑详情`,
+      loadErrorFallback: 'SKU 商品数据加载失败，请重试',
       searchPlaceholder: '搜索商品名称、编码或陈列位...',
       searchAria: '搜索 SKU 商品',
       filterAll: (count) => `全部 ${count}`,
@@ -1006,8 +1005,7 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       addSkuButton: 'Add New SKU',
       eyebrow: (seriesName) => `${seriesName} COLLECTION CATALOG`,
       pageTitle: 'SKU Management',
-      pageSubtitle: (count) =>
-        `${count} items · Click any card to edit details`,
+      loadErrorFallback: 'Failed to load SKU data. Please try again.',
       searchPlaceholder: 'Search SKU name, code, or slot...',
       searchAria: 'Search SKUs',
       filterAll: (count) => `All ${count}`,

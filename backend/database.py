@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from .sku_seed import INITIAL_SKUS
+
 
 BACKEND_DIR = Path(__file__).resolve().parent
 DATABASE_PATH = BACKEND_DIR / "data" / "aishowcase.db"
@@ -89,6 +91,7 @@ INITIAL_SERIES = (
 def get_connection() -> sqlite3.Connection:
     connection = sqlite3.connect(DATABASE_PATH)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
 
@@ -162,6 +165,60 @@ def init_database() -> None:
             """,
             INITIAL_SERIES,
         )
+
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS product_skus (
+                id TEXT PRIMARY KEY,
+                series_id TEXT NOT NULL,
+                sku_code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                english_name TEXT NOT NULL DEFAULT '',
+                volume TEXT NOT NULL DEFAULT '',
+                abv TEXT NOT NULL DEFAULT '',
+                price TEXT NOT NULL DEFAULT '',
+                packaging TEXT NOT NULL DEFAULT '',
+                shelf_slot TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL CHECK (status IN ('active', 'inactive')),
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                highlight TEXT NOT NULL DEFAULT '',
+                description TEXT NOT NULL DEFAULT '',
+                serving_suggestion TEXT NOT NULL DEFAULT '',
+                image_url TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (series_id) REFERENCES product_series(id) ON DELETE CASCADE
+            )
+            """
+        )
+        sku_seeded = connection.execute(
+            "SELECT value FROM app_metadata WHERE key = 'sku_seed_v1'"
+        ).fetchone()
+        if sku_seeded is None:
+            connection.executemany(
+                """
+                INSERT OR IGNORE INTO product_skus (
+                    id, series_id, sku_code, name, english_name, volume, abv,
+                    price, packaging, shelf_slot, status, sort_order, highlight,
+                    description, serving_suggestion, image_url, updated_at
+                ) VALUES (
+                    :id, :series_id, :sku_code, :name, :english_name, :volume, :abv,
+                    :price, :packaging, :shelf_slot, :status, :sort_order, :highlight,
+                    :description, :serving_suggestion, :image_url, :updated_at
+                )
+                """,
+                INITIAL_SKUS,
+            )
+            connection.execute(
+                "INSERT INTO app_metadata (key, value) VALUES ('sku_seed_v1', 'complete')"
+            )
 
 
 def _row_to_series(row: sqlite3.Row) -> dict[str, Any]:
@@ -300,3 +357,111 @@ def update_series(series_id: str, payload: dict[str, Any]) -> dict[str, Any] | N
         if cursor.rowcount == 0:
             return None
     return get_series(series_id)
+
+
+def _row_to_sku(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "seriesId": row["series_id"],
+        "skuCode": row["sku_code"],
+        "name": row["name"],
+        "englishName": row["english_name"],
+        "volume": row["volume"],
+        "abv": row["abv"],
+        "price": row["price"],
+        "packaging": row["packaging"],
+        "shelfSlot": row["shelf_slot"],
+        "status": row["status"],
+        "sortOrder": row["sort_order"],
+        "highlight": row["highlight"],
+        "description": row["description"],
+        "servingSuggestion": row["serving_suggestion"],
+        "imageUrl": row["image_url"],
+        "updatedAt": row["updated_at"],
+    }
+
+
+def list_skus(series_id: str) -> list[dict[str, Any]]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT * FROM product_skus
+            WHERE series_id = ?
+            ORDER BY sort_order, name
+            """,
+            (series_id,),
+        ).fetchall()
+    return [_row_to_sku(row) for row in rows]
+
+
+def get_sku(series_id: str, sku_id: str) -> dict[str, Any] | None:
+    with get_connection() as connection:
+        row = connection.execute(
+            "SELECT * FROM product_skus WHERE series_id = ? AND id = ?",
+            (series_id, sku_id),
+        ).fetchone()
+    return _row_to_sku(row) if row else None
+
+
+def create_sku(series_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    sku_id = f"sku-{uuid4().hex[:12]}"
+    updated_at = datetime.now(timezone.utc).isoformat()
+    with get_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO product_skus (
+                id, series_id, sku_code, name, english_name, volume, abv,
+                price, packaging, shelf_slot, status, sort_order, highlight,
+                description, serving_suggestion, image_url, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                sku_id, series_id, payload["skuCode"], payload["name"],
+                payload["englishName"], payload["volume"], payload["abv"],
+                payload["price"], payload["packaging"], payload["shelfSlot"],
+                payload["status"], payload["sortOrder"], payload["highlight"],
+                payload["description"], payload["servingSuggestion"],
+                payload["imageUrl"], updated_at,
+            ),
+        )
+    created = get_sku(series_id, sku_id)
+    if created is None:
+        raise RuntimeError("Created SKU could not be read back")
+    return created
+
+
+def update_sku(
+    series_id: str, sku_id: str, payload: dict[str, Any]
+) -> dict[str, Any] | None:
+    updated_at = datetime.now(timezone.utc).isoformat()
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE product_skus
+            SET sku_code = ?, name = ?, english_name = ?, volume = ?, abv = ?,
+                price = ?, packaging = ?, shelf_slot = ?, status = ?, sort_order = ?,
+                highlight = ?, description = ?, serving_suggestion = ?, image_url = ?,
+                updated_at = ?
+            WHERE series_id = ? AND id = ?
+            """,
+            (
+                payload["skuCode"], payload["name"], payload["englishName"],
+                payload["volume"], payload["abv"], payload["price"],
+                payload["packaging"], payload["shelfSlot"], payload["status"],
+                payload["sortOrder"], payload["highlight"], payload["description"],
+                payload["servingSuggestion"], payload["imageUrl"], updated_at,
+                series_id, sku_id,
+            ),
+        )
+        if cursor.rowcount == 0:
+            return None
+    return get_sku(series_id, sku_id)
+
+
+def delete_sku(series_id: str, sku_id: str) -> bool:
+    with get_connection() as connection:
+        cursor = connection.execute(
+            "DELETE FROM product_skus WHERE series_id = ? AND id = ?",
+            (series_id, sku_id),
+        )
+    return cursor.rowcount > 0
