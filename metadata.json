@@ -1,0 +1,6 @@
+{
+  "name": "Rémy Martin AI SHOWCASE CMS",
+  "description": "人头马 AI SHOWCASE 智能展示柜内容管理系统，支持产品系列与 SKU 商品信息编辑及实时展示柜预览。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
