@@ -24,9 +24,14 @@ from .database import (
     create_sku,
     delete_sku,
     get_series,
+    get_sku,
     init_database,
     list_series,
+    list_series_translations,
     list_skus,
+    list_sku_translations,
+    upsert_series_translation,
+    upsert_sku_translation,
     update_series,
     update_sku,
 )
@@ -34,6 +39,8 @@ from .database import (
 
 BACKEND_DIR = Path(__file__).resolve().parent
 load_dotenv(BACKEND_DIR / ".env")
+
+SupportedLocale = Literal["zh-CN", "en", "fr", "ar"]
 
 
 class TastingNotes(BaseModel):
@@ -43,6 +50,48 @@ class TastingNotes(BaseModel):
     palateValue: str
     finishLabel: str
     finishValue: str
+
+
+class TranslationTastingNotes(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    aromaLabel: str = Field(default="", max_length=200)
+    aromaValue: str = Field(default="", max_length=500)
+    palateLabel: str = Field(default="", max_length=200)
+    palateValue: str = Field(default="", max_length=500)
+    finishLabel: str = Field(default="", max_length=200)
+    finishValue: str = Field(default="", max_length=500)
+
+
+class SeriesTranslationPayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(default="", max_length=200)
+    subtitle: str = Field(default="", max_length=300)
+    tagline: str = Field(default="", max_length=200)
+    description: str = Field(default="", max_length=5000)
+    tasting: TranslationTastingNotes = Field(default_factory=TranslationTastingNotes)
+    origin: str = Field(default="", max_length=300)
+
+
+class SeriesTranslation(SeriesTranslationPayload):
+    locale: SupportedLocale
+    updatedAt: str
+
+
+class SkuTranslationPayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(default="", max_length=300)
+    packaging: str = Field(default="", max_length=200)
+    highlight: str = Field(default="", max_length=1000)
+    description: str = Field(default="", max_length=5000)
+    servingSuggestion: str = Field(default="", max_length=2000)
+
+
+class SkuTranslation(SkuTranslationPayload):
+    locale: SupportedLocale
+    updatedAt: str
 
 
 class SeriesBasicInfo(BaseModel):
@@ -195,6 +244,28 @@ def create_series_item(payload: SeriesBasicInfoCreate) -> dict:
     return create_series(data)
 
 
+@app.get(
+    "/api/series/{series_id}/translations",
+    response_model=list[SeriesTranslation],
+)
+def read_series_translations(series_id: str) -> list[dict]:
+    if get_series(series_id) is None:
+        raise HTTPException(status_code=404, detail="Product series not found")
+    return list_series_translations(series_id)
+
+
+@app.put(
+    "/api/series/{series_id}/translations/{locale}",
+    response_model=SeriesTranslation,
+)
+def save_series_translation(
+    series_id: str, locale: SupportedLocale, payload: SeriesTranslationPayload
+) -> dict:
+    if get_series(series_id) is None:
+        raise HTTPException(status_code=404, detail="Product series not found")
+    return upsert_series_translation(series_id, locale, payload.model_dump())
+
+
 @app.post("/api/media/upload", response_model=UploadMediaResult, status_code=201)
 async def upload_series_image(
     request: Request, file: UploadFile = File(...)
@@ -292,6 +363,31 @@ def read_sku_list(series_id: str) -> list[dict]:
     if get_series(series_id) is None:
         raise HTTPException(status_code=404, detail="Product series not found")
     return list_skus(series_id)
+
+
+@app.get(
+    "/api/series/{series_id}/skus/{sku_id}/translations",
+    response_model=list[SkuTranslation],
+)
+def read_sku_translations(series_id: str, sku_id: str) -> list[dict]:
+    if get_sku(series_id, sku_id) is None:
+        raise HTTPException(status_code=404, detail="SKU not found")
+    return list_sku_translations(sku_id)
+
+
+@app.put(
+    "/api/series/{series_id}/skus/{sku_id}/translations/{locale}",
+    response_model=SkuTranslation,
+)
+def save_sku_translation(
+    series_id: str,
+    sku_id: str,
+    locale: SupportedLocale,
+    payload: SkuTranslationPayload,
+) -> dict:
+    if get_sku(series_id, sku_id) is None:
+        raise HTTPException(status_code=404, detail="SKU not found")
+    return upsert_sku_translation(sku_id, locale, payload.model_dump())
 
 
 @app.post("/api/series/{series_id}/skus", response_model=SkuInfo, status_code=201)
