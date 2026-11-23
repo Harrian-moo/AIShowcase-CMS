@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { useNativeDialog } from '../hooks/useNativeDialog';
 import { useLanguage } from '../i18n/LanguageContext';
 import { ProductSku } from '../types/cms';
+import { SubjectCropDialog } from './SubjectCropDialog';
 
 interface SkuEditorSheetProps {
   sku: ProductSku | null;
@@ -12,10 +13,6 @@ interface SkuEditorSheetProps {
   onSave: (sku: ProductSku) => Promise<void>;
   onDelete?: (skuId: string) => Promise<void>;
   onUploadImage: (file: File) => Promise<string>;
-  onProcessWhiteBackground: (imageUrl: string) => Promise<{
-    url: string;
-    isMockPlaceholder?: boolean;
-  }>;
 }
 
 export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
@@ -27,7 +24,6 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
   onSave,
   onDelete,
   onUploadImage,
-  onProcessWhiteBackground,
 }) => {
   const { t, localizeError } = useLanguage();
   const titleId = useId();
@@ -36,8 +32,9 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [isProcessingWhiteBg, setIsProcessingWhiteBg] = useState<boolean>(false);
-  const [originalImageBeforeProcess, setOriginalImageBeforeProcess] = useState<string | null>(
+  const [isCropDialogOpen, setIsCropDialogOpen] = useState<boolean>(false);
+  const [isCroppingSubject, setIsCroppingSubject] = useState<boolean>(false);
+  const [originalImageBeforeCrop, setOriginalImageBeforeCrop] = useState<string | null>(
     null
   );
   const [imageProcessNotice, setImageProcessNotice] = useState<string>('');
@@ -56,7 +53,8 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
     if (sku) {
       setDraft(sku);
       setConfirmDelete(false);
-      setOriginalImageBeforeProcess(null);
+      setOriginalImageBeforeCrop(null);
+      setIsCropDialogOpen(false);
       setImageProcessNotice('');
       setErrorMessage('');
     }
@@ -77,7 +75,7 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
     setImageProcessNotice('');
     try {
       const url = await onUploadImage(file);
-      setOriginalImageBeforeProcess(null);
+      setOriginalImageBeforeCrop(null);
       updateField('imageUrl', url);
     } catch (error) {
       setErrorMessage(localizeError(error, t.skuSheet.uploadErrorFallback));
@@ -86,23 +84,22 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
     }
   };
 
-  const handleProcessWhiteBackground = async () => {
-    if (!draft?.imageUrl || isProcessingWhiteBg || isUploading) return;
-    setIsProcessingWhiteBg(true);
+  const handleConfirmSubjectCrop = async (file: File) => {
+    if (!draft?.imageUrl || isCroppingSubject || isUploading) return;
+    setIsCroppingSubject(true);
     setErrorMessage('');
     setImageProcessNotice('');
     const sourceImage = draft.imageUrl;
     try {
-      const result = await onProcessWhiteBackground(sourceImage);
-      setOriginalImageBeforeProcess((prev) => prev ?? sourceImage);
-      updateField('imageUrl', result.url);
-      if (result.isMockPlaceholder) {
-        setImageProcessNotice(t.skuSheet.whiteBgMockNotice);
-      }
+      const url = await onUploadImage(file);
+      setOriginalImageBeforeCrop((prev) => prev ?? sourceImage);
+      updateField('imageUrl', url);
+      setImageProcessNotice(t.skuSheet.subjectCropSavedNotice);
+      setIsCropDialogOpen(false);
     } catch (error) {
-      setErrorMessage(localizeError(error, t.skuSheet.whiteBgErrorFallback));
+      throw new Error(localizeError(error, t.skuSheet.subjectCropErrorFallback));
     } finally {
-      setIsProcessingWhiteBg(false);
+      setIsCroppingSubject(false);
     }
   };
 
@@ -224,7 +221,7 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                   />
                   <button
                     type="button"
-                    disabled={isUploading || isProcessingWhiteBg}
+                    disabled={isUploading || isCroppingSubject}
                     onClick={() => fileInputRef.current?.click()}
                     className="px-3.5 py-1.5 border border-[#141414] bg-white text-[12px] font-medium text-[#141414] hover:bg-[#141414] hover:text-white disabled:opacity-60 transition-colors cursor-pointer whitespace-nowrap"
                   >
@@ -232,21 +229,21 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                   </button>
                   <button
                     type="button"
-                    disabled={!draft.imageUrl || isUploading || isProcessingWhiteBg}
-                    onClick={() => void handleProcessWhiteBackground()}
+                    disabled={!draft.imageUrl || isUploading || isCroppingSubject}
+                    onClick={() => setIsCropDialogOpen(true)}
                     className="px-3.5 py-1.5 border border-[#A88950] bg-[#FAF7F0] text-[12px] font-medium text-[#7A6136] hover:bg-[#A88950] hover:text-white disabled:opacity-45 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    {isProcessingWhiteBg
-                      ? t.skuSheet.processingWhiteBg
-                      : t.skuSheet.processWhiteBgButton}
+                    {isCroppingSubject
+                      ? t.skuSheet.subjectCropping
+                      : t.skuSheet.subjectCropButton}
                   </button>
-                  {originalImageBeforeProcess && (
+                  {originalImageBeforeCrop && (
                     <button
                       type="button"
-                      disabled={isProcessingWhiteBg}
+                      disabled={isCroppingSubject}
                       onClick={() => {
-                        updateField('imageUrl', originalImageBeforeProcess);
-                        setOriginalImageBeforeProcess(null);
+                        updateField('imageUrl', originalImageBeforeCrop);
+                        setOriginalImageBeforeCrop(null);
                         setImageProcessNotice('');
                       }}
                       className="px-2 py-1.5 text-[12px] text-[#7A6136] hover:text-[#141414] cursor-pointer whitespace-nowrap"
@@ -257,9 +254,9 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                   {seriesDefaultImage && draft.imageUrl !== seriesDefaultImage && (
                     <button
                       type="button"
-                      disabled={isProcessingWhiteBg}
+                      disabled={isCroppingSubject}
                       onClick={() => {
-                        setOriginalImageBeforeProcess(null);
+                        setOriginalImageBeforeCrop(null);
                         setImageProcessNotice('');
                         updateField('imageUrl', seriesDefaultImage);
                       }}
@@ -609,6 +606,13 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
           </div>
         </div>
       )}
+      <SubjectCropDialog
+        imageUrl={draft?.imageUrl ?? ''}
+        isOpen={isCropDialogOpen}
+        isSubmitting={isCroppingSubject}
+        onClose={() => setIsCropDialogOpen(false)}
+        onConfirm={handleConfirmSubjectCrop}
+      />
     </dialog>
   );
 };

@@ -28,6 +28,17 @@ export interface TranslationDictionary {
     notUploaded: string;
     noImage: string;
   };
+  cropper: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    imageAlt: string;
+    selectionLabel: string;
+    reset: string;
+    confirm: string;
+    saving: string;
+    errorFallback: string;
+  };
   login: {
     subtitle: string;
     usernameLabel: string;
@@ -97,6 +108,10 @@ export interface TranslationDictionary {
     changeImageButton: string;
     processWhiteBgButton: string;
     processingWhiteBg: string;
+    subjectCropButton: string;
+    subjectCropping: string;
+    subjectCropSavedNotice: string;
+    subjectCropErrorFallback: string;
     restoreOriginalImageButton: string;
     whiteBgProcessedNotice: string;
     whiteBgMockNotice: string;
@@ -182,6 +197,10 @@ export interface TranslationDictionary {
     uploadNewImage: string;
     processWhiteBgButton: string;
     processingWhiteBg: string;
+    subjectCropButton: string;
+    subjectCropping: string;
+    subjectCropSavedNotice: string;
+    subjectCropErrorFallback: string;
     restoreOriginalImageButton: string;
     whiteBgMockNotice: string;
     whiteBgErrorFallback: string;
@@ -437,6 +456,17 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       notUploaded: '未上传',
       noImage: '无图片',
     },
+    cropper: {
+      eyebrow: '白底图生成准备',
+      title: '手动框选商品主体',
+      description: '拖动选框调整位置，拖动四角控制点缩放。请完整保留瓶身与包装边缘，并尽量减少多余背景。',
+      imageAlt: '待框选的商品图片',
+      selectionLabel: '商品主体范围',
+      reset: '重置选框',
+      confirm: '确认裁剪并上传',
+      saving: '正在裁剪上传...',
+      errorFallback: '商品主体裁剪失败，请重试',
+    },
     login: {
       subtitle: '展示柜后台内容管理系统',
       usernameLabel: '用户名',
@@ -502,12 +532,16 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       enterSkuManagement: (count) => `进入系列产品 SKU 管理 (${count}) →`,
       visualSectionTitle: '系列主视觉图片',
       visualSectionHint:
-        '支持上传 JPG / PNG / WebP 原图，上传后可点击“生成标准白底图”自动适配展示柜画幅。',
+        '支持上传 JPG / PNG / WebP 原图；上传后先手动框选商品主体，作为下一步白底图插件的输入图。',
       visualDescription:
         '此图片将同步展示于 AI SHOWCASE 前端主展台及底部系列选择卡片。',
       changeImageButton: '更换系列图片',
       processWhiteBgButton: '生成标准白底图',
       processingWhiteBg: '白底处理中...',
+      subjectCropButton: '手动框选商品主体',
+      subjectCropping: '裁剪上传中...',
+      subjectCropSavedNotice: '商品主体裁剪图已上传；保存本页后将作为下一步白底图插件的输入图。',
+      subjectCropErrorFallback: '商品主体裁剪或上传失败，请重试',
       restoreOriginalImageButton: '恢复原图',
       whiteBgProcessedNotice: '已按展示柜比例生成标准白底图，保存后将同步至终端。',
       whiteBgMockNotice:
@@ -593,10 +627,14 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       uploadErrorFallback: '图片上传失败，请重试',
       productImageTitle: '商品展示图片',
       productImageHint:
-        '用于 SKU 卡片及展示柜单品详情，上传商品原图后可一键生成标准白底图。',
+        '用于 SKU 卡片及展示柜单品详情；上传原图后先手动框选商品主体，再进入下一步白底图生成。',
       uploadNewImage: '上传新图片',
       processWhiteBgButton: '生成标准白底图',
       processingWhiteBg: '白底处理中...',
+      subjectCropButton: '手动框选商品主体',
+      subjectCropping: '裁剪上传中...',
+      subjectCropSavedNotice: '商品主体裁剪图已上传；保存商品后将作为下一步白底图插件的输入图。',
+      subjectCropErrorFallback: '商品主体裁剪或上传失败，请重试',
       restoreOriginalImageButton: '恢复原图',
       whiteBgMockNotice:
         '已按 3:4 白底画布居中规范化（本地占位，接入外部 AI / 插件后将自动智能抠图）。',
@@ -886,6 +924,17 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       notUploaded: 'No Image',
       noImage: 'No Image',
     },
+    cropper: {
+      eyebrow: 'WHITE-BACKGROUND PREPARATION',
+      title: 'Manually Select Product Subject',
+      description: 'Drag the frame to reposition it and use the four corner handles to resize. Keep the full bottle and packaging edges while excluding unnecessary background.',
+      imageAlt: 'Product image ready for subject selection',
+      selectionLabel: 'Product subject',
+      reset: 'Reset Frame',
+      confirm: 'Crop and Upload',
+      saving: 'Cropping and uploading...',
+      errorFallback: 'Failed to crop the product subject. Please try again.',
+    },
     login: {
       subtitle: 'SHOWCASE CONTENT MANAGEMENT SYSTEM',
       usernameLabel: 'Username',
@@ -952,12 +1001,16 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       enterSkuManagement: (count) => `Manage Series SKUs (${count}) →`,
       visualSectionTitle: 'Collection Hero Visual',
       visualSectionHint:
-        'Supports JPG, PNG, or WebP uploads — standardize to a showcase white backdrop in one click.',
+        'Supports JPG, PNG, or WebP uploads. Select and crop the product subject first, then use it as the input for the white-background plugin in the next step.',
       visualDescription:
         'This visual syncs directly to the AI SHOWCASE main stage and bottom collection selector cards.',
       changeImageButton: 'Replace Image',
       processWhiteBgButton: 'Generate White Backdrop',
       processingWhiteBg: 'Processing...',
+      subjectCropButton: 'Select Product Subject',
+      subjectCropping: 'Cropping...',
+      subjectCropSavedNotice: 'The cropped subject has been uploaded. Save this page to use it as the input for the white-background plugin in the next step.',
+      subjectCropErrorFallback: 'Failed to crop or upload the product subject.',
       restoreOriginalImageButton: 'Restore Original',
       whiteBgProcessedNotice:
         'Standardized white-background image generated. Save & Publish to sync.',
@@ -1048,10 +1101,14 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       uploadErrorFallback: 'Image upload failed. Please try again.',
       productImageTitle: 'Product Studio Image',
       productImageHint:
-        'Displayed on SKU cards and showcase detail views. Upload any bottle photo and standardize to a white backdrop in one click.',
+        'Displayed on SKU cards and showcase detail views. Upload an image and select the product subject before the next white-background generation step.',
       uploadNewImage: 'Upload Image',
       processWhiteBgButton: 'White Backdrop',
       processingWhiteBg: 'Processing...',
+      subjectCropButton: 'Select Product Subject',
+      subjectCropping: 'Cropping...',
+      subjectCropSavedNotice: 'The cropped subject has been uploaded. Save the product to use it as the input for the white-background plugin in the next step.',
+      subjectCropErrorFallback: 'Failed to crop or upload the product subject.',
       restoreOriginalImageButton: 'Restore Original',
       whiteBgMockNotice:
         'Framed on a 3:4 white canvas (local placeholder; external AI/plugin connects via mediaService).',

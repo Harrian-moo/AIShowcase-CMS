@@ -168,19 +168,6 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
     }
   };
 
-  const handleProcessWhiteBackground = async (imageUrl: string) => {
-    try {
-      return await mediaService.processWhiteBackground({
-        imageUrl,
-        targetAspectRatio: '3:4',
-        backgroundColor: '#FFFFFF',
-        paddingRatio: 0.08,
-      });
-    } catch (error) {
-      throw new ApiError(localizeError(error, t.skuSheet.whiteBgErrorFallback));
-    }
-  };
-
   return (
     <div className="flex-1 min-w-0 flex flex-col h-screen bg-[#FAF9F6] overflow-hidden">
       {/* Solid White Architectural Header Aligned to 1160px Content Grid */}
@@ -492,7 +479,6 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
         onSave={handleSaveSku}
         onDelete={handleDeleteSku}
         onUploadImage={handleUploadImage}
-        onProcessWhiteBackground={handleProcessWhiteBackground}
       />
     </div>
   );

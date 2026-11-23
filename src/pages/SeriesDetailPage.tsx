@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { ShowcaseCardPreview } from '../components/ShowcaseCardPreview';
+import { SubjectCropDialog } from '../components/SubjectCropDialog';
 import { useNativeDialog } from '../hooks/useNativeDialog';
 import { useLanguage } from '../i18n/LanguageContext';
 import { mediaService, seriesService } from '../services';
@@ -38,8 +39,9 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [isProcessingWhiteBg, setIsProcessingWhiteBg] = useState<boolean>(false);
-  const [originalImageBeforeProcess, setOriginalImageBeforeProcess] = useState<string | null>(
+  const [isCropDialogOpen, setIsCropDialogOpen] = useState<boolean>(false);
+  const [isCroppingSubject, setIsCroppingSubject] = useState<boolean>(false);
+  const [originalImageBeforeCrop, setOriginalImageBeforeCrop] = useState<string | null>(
     null
   );
   const [imageProcessNotice, setImageProcessNotice] = useState<string>('');
@@ -62,7 +64,8 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     setDraft(series);
     setHasUnsavedChanges(false);
     setConfirmDelete(false);
-    setOriginalImageBeforeProcess(null);
+    setOriginalImageBeforeCrop(null);
+    setIsCropDialogOpen(false);
     setImageProcessNotice('');
     setErrorMessage('');
     setStatusNotice('');
@@ -106,7 +109,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     setImageProcessNotice('');
     try {
       const uploaded = await mediaService.uploadSeriesImage(file);
-      setOriginalImageBeforeProcess(null);
+      setOriginalImageBeforeCrop(null);
       updateDraftField('imageUrl', uploaded.url);
     } catch (error) {
       setErrorMessage(localizeError(error, t.series.uploadErrorFallback));
@@ -115,37 +118,29 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     }
   };
 
-  const handleProcessWhiteBackground = async () => {
-    if (!draft.imageUrl || isProcessingWhiteBg || isUploading) return;
-    setIsProcessingWhiteBg(true);
+  const handleConfirmSubjectCrop = async (file: File) => {
+    if (!draft.imageUrl || isCroppingSubject || isUploading) return;
+    setIsCroppingSubject(true);
     setErrorMessage('');
     setImageProcessNotice('');
     const sourceImage = draft.imageUrl;
     try {
-      const result = await mediaService.processWhiteBackground({
-        imageUrl: sourceImage,
-        targetAspectRatio: '3:4',
-        backgroundColor: '#FFFFFF',
-        paddingRatio: 0.08,
-      });
-      setOriginalImageBeforeProcess((prev) => prev ?? sourceImage);
-      updateDraftField('imageUrl', result.url);
-      setImageProcessNotice(
-        result.isMockPlaceholder
-          ? t.series.whiteBgMockNotice
-          : t.series.whiteBgProcessedNotice
-      );
+      const uploaded = await mediaService.uploadSeriesImage(file);
+      setOriginalImageBeforeCrop((prev) => prev ?? sourceImage);
+      updateDraftField('imageUrl', uploaded.url);
+      setImageProcessNotice(t.series.subjectCropSavedNotice);
+      setIsCropDialogOpen(false);
     } catch (error) {
-      setErrorMessage(localizeError(error, t.series.whiteBgErrorFallback));
+      throw new Error(localizeError(error, t.series.subjectCropErrorFallback));
     } finally {
-      setIsProcessingWhiteBg(false);
+      setIsCroppingSubject(false);
     }
   };
 
   const handleRestoreOriginalImage = () => {
-    if (!originalImageBeforeProcess) return;
-    updateDraftField('imageUrl', originalImageBeforeProcess);
-    setOriginalImageBeforeProcess(null);
+    if (!originalImageBeforeCrop) return;
+    updateDraftField('imageUrl', originalImageBeforeCrop);
+    setOriginalImageBeforeCrop(null);
     setImageProcessNotice('');
   };
 
@@ -357,7 +352,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                   />
                   <button
                     type="button"
-                    disabled={isUploading || isProcessingWhiteBg}
+                    disabled={isUploading || isCroppingSubject}
                     onClick={() => fileInputRef.current?.click()}
                     className="px-5 py-2.5 border border-[#141414] bg-white text-[14px] font-medium text-[#141414] hover:bg-[#141414] hover:text-white disabled:opacity-60 transition-colors duration-150 cursor-pointer whitespace-nowrap"
                   >
@@ -365,13 +360,13 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                   </button>
                   <button
                     type="button"
-                    disabled={!draft.imageUrl || isUploading || isProcessingWhiteBg}
-                    onClick={() => void handleProcessWhiteBackground()}
+                    disabled={!draft.imageUrl || isUploading || isCroppingSubject}
+                    onClick={() => setIsCropDialogOpen(true)}
                     className="px-5 py-2.5 border border-[#A88950] bg-[#FAF7F0] text-[14px] font-medium text-[#7A6136] hover:bg-[#A88950] hover:text-white disabled:opacity-45 disabled:hover:bg-[#FAF7F0] disabled:hover:text-[#7A6136] disabled:cursor-not-allowed transition-colors duration-150 cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-[#141414]"
                   >
-                    {isProcessingWhiteBg
-                      ? t.series.processingWhiteBg
-                      : t.series.processWhiteBgButton}
+                    {isCroppingSubject
+                      ? t.series.subjectCropping
+                      : t.series.subjectCropButton}
                   </button>
                   {draft.imageUrl && (
                     <>
@@ -379,10 +374,10 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                         className="h-4 w-[1px] bg-[#E6E0D4] mx-0.5 hidden sm:inline-block"
                         aria-hidden="true"
                       />
-                      {originalImageBeforeProcess && (
+                      {originalImageBeforeCrop && (
                         <button
                           type="button"
-                          disabled={isProcessingWhiteBg}
+                          disabled={isCroppingSubject}
                           onClick={handleRestoreOriginalImage}
                           className="px-2.5 py-2 text-[13.5px] text-[#7A6136] hover:text-[#141414] transition-colors cursor-pointer whitespace-nowrap"
                         >
@@ -391,9 +386,9 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                       )}
                       <button
                         type="button"
-                        disabled={isProcessingWhiteBg}
+                        disabled={isCroppingSubject}
                         onClick={() => {
-                          setOriginalImageBeforeProcess(null);
+                          setOriginalImageBeforeCrop(null);
                           setImageProcessNotice('');
                           updateDraftField('imageUrl', '');
                         }}
@@ -747,6 +742,14 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
           </div>
         </div>
       </dialog>
+
+      <SubjectCropDialog
+        imageUrl={draft.imageUrl}
+        isOpen={isCropDialogOpen}
+        isSubmitting={isCroppingSubject}
+        onClose={() => setIsCropDialogOpen(false)}
+        onConfirm={handleConfirmSubjectCrop}
+      />
     </div>
   );
 };
