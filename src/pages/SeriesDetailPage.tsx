@@ -458,39 +458,26 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-9 gap-y-6">
-                <div>
-                  <label
-                    htmlFor="tagline-en"
-                    className="block text-[13px] text-[#6E675C] mb-2"
-                  >
-                    {t.series.taglinePrimaryLabel}
-                  </label>
-                  <input
-                    id="tagline-en"
-                    type="text"
-                    value={draft.taglineEn}
-                    onChange={(e) => updateDraftField('taglineEn', e.target.value)}
-                    placeholder={t.series.taglinePrimaryPlaceholder}
-                    className="w-full px-4 py-3 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="tagline-zh"
-                    className="block text-[13px] text-[#6E675C] mb-2"
-                  >
-                    {t.series.taglineSecondaryLabel}
-                  </label>
-                  <input
-                    id="tagline-zh"
-                    type="text"
-                    value={draft.taglineZh}
-                    onChange={(e) => updateDraftField('taglineZh', e.target.value)}
-                    placeholder={t.series.taglineSecondaryPlaceholder}
-                    className="w-full px-4 py-3 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
-                  />
-                </div>
+              <div>
+                <label
+                  htmlFor="series-tagline"
+                  className="block text-[13px] text-[#6E675C] mb-2"
+                >
+                  {t.series.taglineLabel}
+                </label>
+                <input
+                  id="series-tagline"
+                  type="text"
+                  value={locale === 'en' ? draft.taglineEn : draft.taglineZh}
+                  onChange={(e) =>
+                    updateDraftField(
+                      locale === 'en' ? 'taglineEn' : 'taglineZh',
+                      e.target.value
+                    )
+                  }
+                  placeholder={t.series.taglinePlaceholder}
+                  className="w-full px-4 py-3 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
+                />
               </div>
 
               <div>

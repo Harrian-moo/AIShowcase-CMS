@@ -14,11 +14,10 @@ export const CreateSeriesModal: React.FC<CreateSeriesModalProps> = ({
   onClose,
   onCreate,
 }) => {
-  const { t, localizeError } = useLanguage();
+  const { locale, t, localizeError } = useLanguage();
   const titleId = useId();
   const [name, setName] = useState<string>('');
-  const [taglineEn, setTaglineEn] = useState<string>('');
-  const [taglineZh, setTaglineZh] = useState<string>('');
+  const [tagline, setTagline] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -48,12 +47,12 @@ export const CreateSeriesModal: React.FC<CreateSeriesModalProps> = ({
     try {
       await onCreate({
         name: name.trim(),
-        taglineEn: taglineEn.trim(),
-        taglineZh: taglineZh.trim(),
+        ...(locale === 'en'
+          ? { taglineEn: tagline.trim() }
+          : { taglineZh: tagline.trim() }),
       });
       setName('');
-      setTaglineEn('');
-      setTaglineZh('');
+      setTagline('');
       onClose();
     } catch (error) {
       setErrorMessage(localizeError(error, t.createSeries.createErrorFallback));
@@ -115,41 +114,22 @@ export const CreateSeriesModal: React.FC<CreateSeriesModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="mwg-field">
-              <label
-                htmlFor="new-series-en"
-                className="block text-[12px] text-[#6E675C] mb-2"
-              >
-                {t.createSeries.taglinePrimaryLabel}
-              </label>
-              <input
-                id="new-series-en"
-                type="text"
-                disabled={isSubmitting}
-                value={taglineEn}
-                onChange={(e) => setTaglineEn(e.target.value)}
-                placeholder={t.createSeries.taglinePrimaryPlaceholder}
-                className="w-full px-3.5 py-2.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[14px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors disabled:opacity-60"
-              />
-            </div>
-            <div className="mwg-field">
-              <label
-                htmlFor="new-series-zh"
-                className="block text-[12px] text-[#6E675C] mb-2"
-              >
-                {t.createSeries.taglineSecondaryLabel}
-              </label>
-              <input
-                id="new-series-zh"
-                type="text"
-                disabled={isSubmitting}
-                value={taglineZh}
-                onChange={(e) => setTaglineZh(e.target.value)}
-                placeholder={t.createSeries.taglineSecondaryPlaceholder}
-                className="w-full px-3.5 py-2.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[14px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors disabled:opacity-60"
-              />
-            </div>
+          <div className="mwg-field">
+            <label
+              htmlFor="new-series-tagline"
+              className="block text-[12px] text-[#6E675C] mb-2"
+            >
+              {t.createSeries.taglineLabel}
+            </label>
+            <input
+              id="new-series-tagline"
+              type="text"
+              disabled={isSubmitting}
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
+              placeholder={t.createSeries.taglinePlaceholder}
+              className="w-full px-3.5 py-2.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[14px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors disabled:opacity-60"
+            />
           </div>
 
           {errorMessage && (

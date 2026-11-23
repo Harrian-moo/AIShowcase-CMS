@@ -28,7 +28,7 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
   onBackToSeries,
   onSeriesSkusChanged,
 }) => {
-  const { t, localizeError } = useLanguage();
+  const { locale, t, localizeError } = useLanguage();
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [query, setQuery] = useState<string>('');
   const [editingSku, setEditingSku] = useState<ProductSku | null>(null);
@@ -73,6 +73,9 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
 
   const activeCount = series.skus.filter((s) => s.status === 'active').length;
   const inactiveCount = series.skus.length - activeCount;
+
+  const getDisplayName = (sku: ProductSku) =>
+    (locale === 'en' ? sku.englishName : sku.name) || sku.name || sku.englishName;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -364,7 +367,7 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
                     {sku.imageUrl ? (
                       <img
                         src={sku.imageUrl}
-                        alt={sku.name}
+                        alt={getDisplayName(sku)}
                         width={148}
                         height={188}
                         loading={idx < 2 ? 'eager' : 'lazy'}
@@ -415,15 +418,10 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
                         </span>
                       </div>
 
-                      {/* Product Title & Secondary Name */}
+                      {/* Product Title */}
                       <h2 className="text-[21px] font-semibold text-[#141414] mt-3 leading-snug">
-                        {sku.name}
+                        {getDisplayName(sku)}
                       </h2>
-                      {sku.englishName && (
-                        <p className="text-[13px] tracking-[0.04em] text-[#8E816C] mt-1">
-                          {sku.englishName}
-                        </p>
-                      )}
 
                       {/* Selling Point / Description */}
                       <p className="text-[15px] text-[#4A4845] leading-relaxed mt-3.5 line-clamp-2">

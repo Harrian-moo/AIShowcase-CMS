@@ -122,10 +122,8 @@ export interface TranslationDictionary {
     namePlaceholder: string;
     subtitleLabel: string;
     subtitlePlaceholder: string;
-    taglinePrimaryLabel: string;
-    taglinePrimaryPlaceholder: string;
-    taglineSecondaryLabel: string;
-    taglineSecondaryPlaceholder: string;
+    taglineLabel: string;
+    taglinePlaceholder: string;
     descriptionLabel: string;
     descriptionPlaceholder: string;
     tastingSectionTitle: string;
@@ -206,10 +204,8 @@ export interface TranslationDictionary {
     whiteBgErrorFallback: string;
     restoreDefaultImage: string;
     basicInfoTitle: string;
-    primaryNameLabel: string;
-    primaryNamePlaceholder: string;
-    secondaryNameLabel: string;
-    secondaryNamePlaceholder: string;
+    nameLabel: string;
+    namePlaceholder: string;
     skuCodeLabel: string;
     skuCodePlaceholder: string;
     shelfSlotLabel: string;
@@ -282,10 +278,8 @@ export interface TranslationDictionary {
     title: string;
     nameLabel: string;
     namePlaceholder: string;
-    taglinePrimaryLabel: string;
-    taglinePrimaryPlaceholder: string;
-    taglineSecondaryLabel: string;
-    taglineSecondaryPlaceholder: string;
+    taglineLabel: string;
+    taglinePlaceholder: string;
     nameRequiredError: string;
     createErrorFallback: string;
     creatingButton: string;
@@ -553,10 +547,8 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       namePlaceholder: '例如：CLUB / XO / VSOP',
       subtitleLabel: '系列副标题（英文定位）',
       subtitlePlaceholder: 'COGNAC FINE CHAMPAGNE',
-      taglinePrimaryLabel: '顶部英文主题词',
-      taglinePrimaryPlaceholder: 'MULTIFACETED',
-      taglineSecondaryLabel: '顶部中文主题词',
-      taglineSecondaryPlaceholder: '多面风范',
+      taglineLabel: '顶部主题词',
+      taglinePlaceholder: '例如：多面风范',
       descriptionLabel: '系列品鉴简介',
       descriptionPlaceholder: '输入展示于前端的系列故事与品鉴介绍...',
       tastingSectionTitle: '品鉴维度与产区参数',
@@ -641,10 +633,8 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       whiteBgErrorFallback: '白底图处理失败，请重试',
       restoreDefaultImage: '恢复系列默认图',
       basicInfoTitle: '基础商品信息',
-      primaryNameLabel: '商品中文名称',
-      primaryNamePlaceholder: '例如：人头马 CLUB 优质香槟区干邑 700ml',
-      secondaryNameLabel: '商品英文名称',
-      secondaryNamePlaceholder: 'Rémy Martin CLUB Fine Champagne Cognac 700ml',
+      nameLabel: '商品名称',
+      namePlaceholder: '例如：人头马 CLUB 优质香槟区干邑 700ml',
       skuCodeLabel: 'SKU 编码',
       skuCodePlaceholder: 'RM-CLUB-700',
       shelfSlotLabel: '展示柜陈列位编号',
@@ -722,10 +712,8 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       title: '新增产品系列',
       nameLabel: '系列名称',
       namePlaceholder: '例如：LOUIS XIII / TERCET',
-      taglinePrimaryLabel: '英文主题词',
-      taglinePrimaryPlaceholder: 'TIMELESS',
-      taglineSecondaryLabel: '中文主题词',
-      taglineSecondaryPlaceholder: '百年传奇',
+      taglineLabel: '主题词',
+      taglinePlaceholder: '例如：百年传奇',
       nameRequiredError: '请输入产品系列名称',
       createErrorFallback: '创建产品系列失败，请稍后重试',
       creatingButton: '创建中...',
@@ -1023,10 +1011,8 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       namePlaceholder: 'e.g. CLUB / XO / VSOP',
       subtitleLabel: 'Collection Subtitle',
       subtitlePlaceholder: 'COGNAC FINE CHAMPAGNE',
-      taglinePrimaryLabel: 'Primary Tagline',
-      taglinePrimaryPlaceholder: 'MULTIFACETED',
-      taglineSecondaryLabel: 'Collection Descriptor',
-      taglineSecondaryPlaceholder: 'MODERN EDGE',
+      taglineLabel: 'Top Tagline',
+      taglinePlaceholder: 'e.g. MULTIFACETED',
       descriptionLabel: 'Tasting Narrative',
       descriptionPlaceholder:
         'Enter the collection story and tasting narrative displayed on the showcase...',
@@ -1115,10 +1101,8 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       whiteBgErrorFallback: 'Failed to process white background. Please try again.',
       restoreDefaultImage: 'Use Series Default',
       basicInfoTitle: 'Core Product Details',
-      primaryNameLabel: 'Product Display Name',
-      primaryNamePlaceholder: 'e.g. Rémy Martin CLUB Fine Champagne Cognac 700ml',
-      secondaryNameLabel: 'Edition / Sub-Title',
-      secondaryNamePlaceholder: 'Signature Octagonal Decanter · 700ml',
+      nameLabel: 'Product Name',
+      namePlaceholder: 'e.g. Rémy Martin CLUB Fine Champagne Cognac 700ml',
       skuCodeLabel: 'SKU Code',
       skuCodePlaceholder: 'RM-CLUB-700',
       shelfSlotLabel: 'Showcase Shelf Slot',
@@ -1199,10 +1183,8 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       title: 'New Product Series',
       nameLabel: 'Series Name',
       namePlaceholder: 'e.g. LOUIS XIII / TERCET',
-      taglinePrimaryLabel: 'Primary Tagline',
-      taglinePrimaryPlaceholder: 'TIMELESS',
-      taglineSecondaryLabel: 'Collection Descriptor',
-      taglineSecondaryPlaceholder: 'CENTURY LEGACY',
+      taglineLabel: 'Tagline',
+      taglinePlaceholder: 'e.g. TIMELESS',
       nameRequiredError: 'Please enter a product series name.',
       createErrorFallback: 'Failed to create product series. Please try again.',
       creatingButton: 'Creating...',

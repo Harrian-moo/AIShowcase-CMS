@@ -27,7 +27,7 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
   onUploadImage,
   onGenerateStandardImage,
 }) => {
-  const { t, localizeError } = useLanguage();
+  const { locale, t, localizeError } = useLanguage();
   const titleId = useId();
   const [draft, setDraft] = useState<ProductSku | null>(sku);
   const [confirmDelete, setConfirmDelete] = useState<boolean>(false);
@@ -158,7 +158,10 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                 id={titleId}
                 className="text-[20px] font-semibold text-[#141414] mt-1 truncate"
               >
-                {draft.name || t.skuSheet.unnamedProduct}
+                {(locale === 'en' ? draft.englishName : draft.name) ||
+                  draft.name ||
+                  draft.englishName ||
+                  t.skuSheet.unnamedProduct}
               </h2>
             </div>
             <button
@@ -192,7 +195,11 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                 {draft.imageUrl ? (
                   <img
                     src={draft.imageUrl}
-                    alt={draft.name}
+                    alt={
+                      (locale === 'en' ? draft.englishName : draft.name) ||
+                      draft.name ||
+                      draft.englishName
+                    }
                     width={84}
                     height={112}
                     decoding="async"
@@ -318,32 +325,17 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                     htmlFor="sku-name"
                     className="block text-[12px] text-[#6E675C] mb-1.5 transition-colors"
                   >
-                    {t.skuSheet.primaryNameLabel}
+                    {t.skuSheet.nameLabel}
                   </label>
                   <input
                     id="sku-name"
                     type="text"
                     required
-                    value={draft.name}
-                    onChange={(e) => updateField('name', e.target.value)}
-                    placeholder={t.skuSheet.primaryNamePlaceholder}
-                    className="w-full px-3.5 py-2.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] hover:bg-[#F5F1E9] text-[14px] text-[#141414] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div className="mwg-field">
-                  <label
-                    htmlFor="sku-en-name"
-                    className="block text-[12px] text-[#6E675C] mb-1.5"
-                  >
-                    {t.skuSheet.secondaryNameLabel}
-                  </label>
-                  <input
-                    id="sku-en-name"
-                    type="text"
-                    value={draft.englishName}
-                    onChange={(e) => updateField('englishName', e.target.value)}
-                    placeholder={t.skuSheet.secondaryNamePlaceholder}
+                    value={locale === 'en' ? draft.englishName : draft.name}
+                    onChange={(e) =>
+                      updateField(locale === 'en' ? 'englishName' : 'name', e.target.value)
+                    }
+                    placeholder={t.skuSheet.namePlaceholder}
                     className="w-full px-3.5 py-2.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] hover:bg-[#F5F1E9] text-[14px] text-[#141414] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                   />
                 </div>
