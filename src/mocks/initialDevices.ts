@@ -500,5 +500,5 @@ export const INITIAL_MOCK_DEVICES_EN: ShowcaseDevice[] = [
 ];
 
 export function getInitialMockDevices(locale: Locale): ShowcaseDevice[] {
-  return locale === 'en' ? INITIAL_MOCK_DEVICES_EN : INITIAL_MOCK_DEVICES;
+  return locale === 'zh-CN' ? INITIAL_MOCK_DEVICES : INITIAL_MOCK_DEVICES_EN;
 }

@@ -49,7 +49,9 @@ export const CreateSeriesModal: React.FC<CreateSeriesModalProps> = ({
         name: name.trim(),
         ...(locale === 'en'
           ? { taglineEn: tagline.trim() }
-          : { taglineZh: tagline.trim() }),
+          : locale === 'zh-CN'
+            ? { taglineZh: tagline.trim() }
+            : {}),
       });
       setName('');
       setTagline('');

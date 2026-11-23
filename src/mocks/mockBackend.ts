@@ -33,7 +33,7 @@ function getDevicesStorageKey(): string {
 }
 
 function localized(zh: string, en: string): string {
-  return getStoredLocale() === 'en' ? en : zh;
+  return getStoredLocale() === 'zh-CN' ? zh : en;
 }
 
 function formatTimestamp(): string {

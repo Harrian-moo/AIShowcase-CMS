@@ -5,7 +5,43 @@ import { SubjectCropDialog } from '../components/SubjectCropDialog';
 import { useNativeDialog } from '../hooks/useNativeDialog';
 import { useLanguage } from '../i18n/LanguageContext';
 import { mediaService, seriesService } from '../services';
-import { ProductSeries, UpdateSeriesPayload } from '../types/cms';
+import {
+  ProductSeries,
+  SeriesTranslation,
+  SeriesTranslationPayload,
+  UpdateSeriesPayload,
+} from '../types/cms';
+
+function fallbackTranslation(
+  series: ProductSeries,
+  locale: SeriesTranslation['locale']
+): SeriesTranslation {
+  const useLegacyContent = locale === 'zh-CN' || locale === 'en';
+  return {
+    locale,
+    name: useLegacyContent ? series.name : '',
+    subtitle: useLegacyContent ? series.subtitle : '',
+    tagline:
+      locale === 'en'
+        ? series.taglineEn
+        : locale === 'zh-CN'
+          ? series.taglineZh
+          : '',
+    description: useLegacyContent ? series.description : '',
+    tasting: useLegacyContent
+      ? series.tasting
+      : {
+          aromaLabel: '',
+          aromaValue: '',
+          palateLabel: '',
+          palateValue: '',
+          finishLabel: '',
+          finishValue: '',
+        },
+    origin: useLegacyContent ? series.origin : '',
+    updatedAt: series.updatedAt,
+  };
+}
 
 interface SeriesDetailPageProps {
   deviceId: string;
@@ -36,6 +72,10 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
   const previewTitleId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState<ProductSeries>(series);
+  const [translation, setTranslation] = useState<SeriesTranslation>(() =>
+    fallbackTranslation(series, locale)
+  );
+  const [isLoadingTranslation, setIsLoadingTranslation] = useState<boolean>(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -59,7 +99,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     lightDismiss: true,
   });
 
-  // Sync draft when switching active device, series, or language dataset
+  // Reset shared fields when switching active device or series.
   useEffect(() => {
     setDraft(series);
     setHasUnsavedChanges(false);
@@ -69,7 +109,35 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     setImageProcessNotice('');
     setErrorMessage('');
     setStatusNotice('');
-  }, [deviceId, locale, series.id, series.updatedAt, series.skus.length, series.description]);
+  }, [deviceId, series.id, series.updatedAt, series.skus.length, series.description]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    setIsLoadingTranslation(true);
+    setTranslation(fallbackTranslation(series, locale));
+    setHasUnsavedChanges(false);
+    setErrorMessage('');
+
+    seriesService
+      .listTranslations(series.id)
+      .then((items) => {
+        if (isCancelled) return;
+        const selected = items.find((item) => item.locale === locale);
+        if (selected) setTranslation(selected);
+      })
+      .catch((error) => {
+        if (!isCancelled) {
+          setErrorMessage(localizeError(error, t.series.saveErrorFallback));
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) setIsLoadingTranslation(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [locale, series.id, series.updatedAt]);
 
   const updateDraftField = <K extends keyof ProductSeries>(
     key: K,
@@ -84,18 +152,25 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     }));
   };
 
-  const updateTastingField = (
-    field: keyof ProductSeries['tasting'],
+  const updateTranslationField = <K extends keyof SeriesTranslationPayload>(
+    key: K,
+    value: SeriesTranslationPayload[K]
+  ) => {
+    setConfirmDelete(false);
+    setErrorMessage('');
+    setHasUnsavedChanges(true);
+    setTranslation((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateTranslationTastingField = (
+    field: keyof SeriesTranslationPayload['tasting'],
     value: string
   ) => {
     setErrorMessage('');
     setHasUnsavedChanges(true);
-    setDraft((prev) => ({
+    setTranslation((prev) => ({
       ...prev,
-      tasting: {
-        ...prev.tasting,
-        [field]: value,
-      },
+      tasting: { ...prev.tasting, [field]: value },
     }));
   };
 
@@ -145,7 +220,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
   };
 
   const handleSaveSeries = async () => {
-    if (isSaving) return;
+    if (isSaving || isLoadingTranslation) return;
     setIsSaving(true);
     setErrorMessage('');
 
@@ -163,7 +238,20 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
 
     try {
       const saved = await seriesService.updateSeries(deviceId, series.id, payload);
+      const savedTranslation = await seriesService.updateTranslation(
+        series.id,
+        locale,
+        {
+          name: translation.name,
+          subtitle: translation.subtitle,
+          tagline: translation.tagline,
+          description: translation.description,
+          tasting: translation.tasting,
+          origin: translation.origin,
+        }
+      );
       setDraft(saved);
+      setTranslation(savedTranslation);
       setHasUnsavedChanges(false);
       onSeriesUpdated(saved);
       setStatusNotice(t.series.publishedNotice(deviceName));
@@ -193,7 +281,18 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
   };
 
   const activeSkuCount = series.skus.filter((item) => item.status === 'active').length;
-  const headingSubtitle = locale === 'en' ? draft.taglineEn : draft.taglineZh;
+  const headingSubtitle = translation.tagline;
+  const displayName = translation.name || draft.name || series.name;
+  const localizedDraft: ProductSeries = {
+    ...draft,
+    name: displayName,
+    subtitle: translation.subtitle,
+    taglineEn: translation.tagline,
+    taglineZh: translation.tagline,
+    description: translation.description,
+    tasting: translation.tasting,
+    origin: translation.origin,
+  };
 
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-screen bg-[#FAF9F6]">
@@ -214,7 +313,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
               /
             </span>
             <span className="font-medium text-[#141414] truncate">
-              {draft.name || series.name}
+              {displayName}
             </span>
             <span className="hidden xl:inline text-[#CBC4B7] mx-1" aria-hidden="true">
               ·
@@ -241,7 +340,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
             </button>
             <button
               type="button"
-              disabled={isSaving}
+              disabled={isSaving || isLoadingTranslation}
               onClick={handleSaveSeries}
               className="px-5 py-2.5 bg-[#141414] hover:bg-[#2F2F2F] disabled:opacity-60 text-white text-[13.5px] font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#A88950]"
             >
@@ -278,7 +377,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
               {t.series.eyebrow}
             </p>
             <h1 className="font-luxury text-[44px] leading-tight text-[#141414] mt-1.5 font-semibold tracking-[0.02em]">
-              {draft.name || series.name}{' '}
+              {displayName}{' '}
               {headingSubtitle && (
                 <span className="font-sans text-[16px] font-normal tracking-normal text-[#8E816C] ml-2.5">
                   {headingSubtitle}
@@ -311,7 +410,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
               </span>
               <h2
                 className={`text-[20px] font-semibold text-[#141414] leading-snug whitespace-nowrap ${
-                  locale === 'en' ? 'tracking-[-0.01em]' : 'tracking-[0.02em]'
+                  locale !== 'zh-CN' ? 'tracking-[-0.01em]' : 'tracking-[0.02em]'
                 }`}
               >
                 {t.series.visualSectionTitle}
@@ -323,7 +422,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                 {draft.imageUrl ? (
                   <img
                     src={draft.imageUrl}
-                    alt={draft.name}
+                    alt={displayName}
                     width={124}
                     height={164}
                     fetchPriority="high"
@@ -415,7 +514,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
               </span>
               <h2
                 className={`text-[20px] font-semibold text-[#141414] leading-snug ${
-                  locale === 'en' ? 'tracking-[-0.01em]' : 'tracking-[0.02em]'
+                  locale !== 'zh-CN' ? 'tracking-[-0.01em]' : 'tracking-[0.02em]'
                 }`}
               >
                 {t.series.basicInfoTitle}
@@ -434,8 +533,8 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                   <input
                     id="series-name"
                     type="text"
-                    value={draft.name}
-                    onChange={(e) => updateDraftField('name', e.target.value)}
+                    value={translation.name}
+                    onChange={(e) => updateTranslationField('name', e.target.value)}
                     placeholder={t.series.namePlaceholder}
                     className="w-full px-4 py-3 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                   />
@@ -450,8 +549,10 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                   <input
                     id="series-subtitle"
                     type="text"
-                    value={draft.subtitle}
-                    onChange={(e) => updateDraftField('subtitle', e.target.value)}
+                    value={translation.subtitle}
+                    onChange={(e) =>
+                      updateTranslationField('subtitle', e.target.value)
+                    }
                     placeholder={t.series.subtitlePlaceholder}
                     className="w-full px-4 py-3 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                   />
@@ -468,12 +569,9 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                 <input
                   id="series-tagline"
                   type="text"
-                  value={locale === 'en' ? draft.taglineEn : draft.taglineZh}
+                  value={translation.tagline}
                   onChange={(e) =>
-                    updateDraftField(
-                      locale === 'en' ? 'taglineEn' : 'taglineZh',
-                      e.target.value
-                    )
+                    updateTranslationField('tagline', e.target.value)
                   }
                   placeholder={t.series.taglinePlaceholder}
                   className="w-full px-4 py-3 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
@@ -490,8 +588,10 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                 <textarea
                   id="series-description"
                   rows={4}
-                  value={draft.description}
-                  onChange={(e) => updateDraftField('description', e.target.value)}
+                  value={translation.description}
+                  onChange={(e) =>
+                    updateTranslationField('description', e.target.value)
+                  }
                   placeholder={t.series.descriptionPlaceholder}
                   className="mwg-auto-textarea w-full px-4 py-3.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] leading-relaxed text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                 />
@@ -507,7 +607,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
               </span>
               <h2
                 className={`text-[20px] font-semibold text-[#141414] leading-snug ${
-                  locale === 'en' ? 'tracking-[-0.01em]' : 'tracking-[0.02em]'
+                  locale !== 'zh-CN' ? 'tracking-[-0.01em]' : 'tracking-[0.02em]'
                 }`}
               >
                 {t.series.tastingSectionTitle}
@@ -521,14 +621,14 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                     htmlFor="tasting-aroma"
                     className="block text-[13px] text-[#6E675C] mb-2"
                   >
-                    {draft.tasting.aromaLabel || t.series.aromaFallbackLabel}
+                    {translation.tasting.aromaLabel || t.series.aromaFallbackLabel}
                   </label>
                   <input
                     id="tasting-aroma"
                     type="text"
-                    value={draft.tasting.aromaValue}
+                    value={translation.tasting.aromaValue}
                     onChange={(e) =>
-                      updateTastingField('aromaValue', e.target.value)
+                      updateTranslationTastingField('aromaValue', e.target.value)
                     }
                     className="w-full px-4 py-3 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                   />
@@ -538,14 +638,14 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                     htmlFor="tasting-palate"
                     className="block text-[13px] text-[#6E675C] mb-2"
                   >
-                    {draft.tasting.palateLabel || t.series.palateFallbackLabel}
+                    {translation.tasting.palateLabel || t.series.palateFallbackLabel}
                   </label>
                   <input
                     id="tasting-palate"
                     type="text"
-                    value={draft.tasting.palateValue}
+                    value={translation.tasting.palateValue}
                     onChange={(e) =>
-                      updateTastingField('palateValue', e.target.value)
+                      updateTranslationTastingField('palateValue', e.target.value)
                     }
                     className="w-full px-4 py-3 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                   />
@@ -555,14 +655,14 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                     htmlFor="tasting-finish"
                     className="block text-[13px] text-[#6E675C] mb-2"
                   >
-                    {draft.tasting.finishLabel || t.series.finishFallbackLabel}
+                    {translation.tasting.finishLabel || t.series.finishFallbackLabel}
                   </label>
                   <input
                     id="tasting-finish"
                     type="text"
-                    value={draft.tasting.finishValue}
+                    value={translation.tasting.finishValue}
                     onChange={(e) =>
-                      updateTastingField('finishValue', e.target.value)
+                      updateTranslationTastingField('finishValue', e.target.value)
                     }
                     className="w-full px-4 py-3 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                   />
@@ -580,8 +680,10 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                   <input
                     id="series-origin"
                     type="text"
-                    value={draft.origin}
-                    onChange={(e) => updateDraftField('origin', e.target.value)}
+                    value={translation.origin}
+                    onChange={(e) =>
+                      updateTranslationField('origin', e.target.value)
+                    }
                     placeholder={t.series.originPlaceholder}
                     className="w-full px-4 py-3 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] text-[15px] text-[#141414] hover:bg-[#F5F1E9] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                   />
@@ -620,7 +722,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
               ) : (
                 <div className="flex items-center gap-3 text-[12px]">
                   <span className="text-[#6E675C]">
-                    {t.series.deleteConfirmPrompt(draft.name)}
+                    {t.series.deleteConfirmPrompt(displayName)}
                   </span>
                   <button
                     type="button"
@@ -661,7 +763,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                 {t.series.previewModalTitle}
               </h2>
               <p className="text-[12px] text-[#8E816C] mt-0.5">
-                {t.series.previewModalSubtitle(draft.name)}
+                {t.series.previewModalSubtitle(displayName)}
               </p>
             </div>
 
@@ -706,7 +808,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
           {/* Modal Preview Canvas */}
           <div className="flex-1 overflow-y-auto mwg-scroll-stable p-6 sm:p-8">
             <ShowcaseCardPreview
-              series={draft}
+              series={localizedDraft}
               showBottle={previewMode === 'stage'}
               seriesIndex={seriesIndex}
               totalSeries={totalSeries}

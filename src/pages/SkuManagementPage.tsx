@@ -8,6 +8,8 @@ import {
   CreateSkuPayload,
   ProductSeries,
   ProductSku,
+  SkuTranslation,
+  SkuTranslationPayload,
   UpdateSkuPayload,
 } from '../types/cms';
 
@@ -21,6 +23,27 @@ interface SkuManagementPageProps {
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
+function fallbackSkuTranslation(
+  sku: ProductSku,
+  locale: SkuTranslation['locale']
+): SkuTranslation {
+  const useLegacyContent = locale === 'zh-CN' || locale === 'en';
+  return {
+    locale,
+    name:
+      locale === 'en'
+        ? sku.englishName || sku.name
+        : locale === 'zh-CN'
+          ? sku.name || sku.englishName
+          : '',
+    packaging: useLegacyContent ? sku.packaging : '',
+    highlight: useLegacyContent ? sku.highlight : '',
+    description: useLegacyContent ? sku.description : '',
+    servingSuggestion: useLegacyContent ? sku.servingSuggestion : '',
+    updatedAt: sku.updatedAt,
+  };
+}
+
 export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
   deviceId,
   deviceName,
@@ -32,6 +55,12 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [query, setQuery] = useState<string>('');
   const [editingSku, setEditingSku] = useState<ProductSku | null>(null);
+  const [editingTranslation, setEditingTranslation] = useState<SkuTranslation | null>(
+    null
+  );
+  const [translationsBySkuId, setTranslationsBySkuId] = useState<
+    Record<string, SkuTranslation>
+  >({});
   const [isCreatingNew, setIsCreatingNew] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -54,6 +83,48 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
     };
   }, [deviceId, series.id]);
 
+  useEffect(() => {
+    let isCancelled = false;
+    if (series.skus.length === 0) {
+      setTranslationsBySkuId({});
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    Promise.all(
+      series.skus.map(async (sku) => {
+        const items = await skuService.listTranslations(series.id, sku.id);
+        return [
+          sku.id,
+          items.find((item) => item.locale === locale) ??
+            fallbackSkuTranslation(sku, locale),
+        ] as const;
+      })
+    )
+      .then((entries) => {
+        if (!isCancelled) setTranslationsBySkuId(Object.fromEntries(entries));
+      })
+      .catch((error) => {
+        if (!isCancelled) {
+          setErrorMessage(localizeError(error, t.sku.loadErrorFallback));
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [locale, series.id, series.skus]);
+
+  function getDisplayName(sku: ProductSku): string {
+    return (
+      translationsBySkuId[sku.id]?.name ||
+      fallbackSkuTranslation(sku, locale).name ||
+      sku.name ||
+      sku.englishName
+    );
+  }
+
   const sortedAndFilteredSkus = useMemo(() => {
     const q = query.trim().toLowerCase();
     return [...series.skus]
@@ -62,6 +133,7 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
         if (filter !== 'all' && item.status !== filter) return false;
         if (!q) return true;
         return (
+          getDisplayName(item).toLowerCase().includes(q) ||
           item.name.toLowerCase().includes(q) ||
           item.englishName.toLowerCase().includes(q) ||
           item.skuCode.toLowerCase().includes(q) ||
@@ -69,13 +141,10 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
           item.shelfSlot.toLowerCase().includes(q)
         );
       });
-  }, [series.skus, filter, query]);
+  }, [series.skus, filter, query, translationsBySkuId]);
 
   const activeCount = series.skus.filter((s) => s.status === 'active').length;
   const inactiveCount = series.skus.length - activeCount;
-
-  const getDisplayName = (sku: ProductSku) =>
-    (locale === 'en' ? sku.englishName : sku.name) || sku.name || sku.englishName;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -108,9 +177,22 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
     setErrorMessage('');
     setIsCreatingNew(true);
     setEditingSku(draftSku);
+    setEditingTranslation(fallbackSkuTranslation(draftSku, locale));
   };
 
-  const handleSaveSku = async (draft: ProductSku) => {
+  const handleOpenSku = (sku: ProductSku) => {
+    setErrorMessage('');
+    setIsCreatingNew(false);
+    setEditingSku(sku);
+    setEditingTranslation(
+      translationsBySkuId[sku.id] ?? fallbackSkuTranslation(sku, locale)
+    );
+  };
+
+  const handleSaveSku = async (
+    draft: ProductSku,
+    translation: SkuTranslationPayload
+  ) => {
     setErrorMessage('');
     const payload: CreateSkuPayload & UpdateSkuPayload = {
       skuCode: draft.skuCode,
@@ -131,8 +213,19 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
 
     if (isCreatingNew) {
       const created = await skuService.createSku(deviceId, series.id, payload);
+      const savedTranslation = await skuService.updateTranslation(
+        series.id,
+        created.id,
+        locale,
+        translation
+      );
+      setTranslationsBySkuId((prev) => ({
+        ...prev,
+        [created.id]: savedTranslation,
+      }));
       onSeriesSkusChanged(series.id, [...series.skus, created]);
       setEditingSku(null);
+      setEditingTranslation(null);
       setIsCreatingNew(false);
       showToast(t.sku.toastCreated);
     } else {
@@ -142,11 +235,22 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
         draft.id,
         payload
       );
+      const savedTranslation = await skuService.updateTranslation(
+        series.id,
+        updated.id,
+        locale,
+        translation
+      );
+      setTranslationsBySkuId((prev) => ({
+        ...prev,
+        [updated.id]: savedTranslation,
+      }));
       const nextSkus = series.skus.map((item) =>
         item.id === updated.id ? updated : item
       );
       onSeriesSkusChanged(series.id, nextSkus);
       setEditingSku(null);
+      setEditingTranslation(null);
       setIsCreatingNew(false);
       showToast(t.sku.toastUpdated);
     }
@@ -158,6 +262,7 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
     const nextSkus = series.skus.filter((item) => item.id !== skuId);
     onSeriesSkusChanged(series.id, nextSkus);
     setEditingSku(null);
+    setEditingTranslation(null);
     setIsCreatingNew(false);
     showToast(t.sku.toastDeleted);
   };
@@ -355,10 +460,7 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
               <button
                 key={sku.id}
                 type="button"
-                onClick={() => {
-                  setIsCreatingNew(false);
-                  setEditingSku(sku);
-                }}
+                onClick={() => handleOpenSku(sku)}
                 className="group w-full text-left bg-white border border-[#ECE7DD] shadow-[0_4px_18px_rgba(20,20,20,0.035),0_1px_3px_rgba(20,20,20,0.02)] hover:border-[#C8B99E] hover:shadow-[0_10px_28px_rgba(20,20,20,0.06)] p-6 @xl:p-8 transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#A88950]"
               >
                 <div className="flex flex-col @xl:flex-row items-stretch gap-7 @xl:gap-9">
@@ -425,7 +527,9 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
 
                       {/* Selling Point / Description */}
                       <p className="text-[15px] text-[#4A4845] leading-relaxed mt-3.5 line-clamp-2">
-                        {sku.highlight || sku.description || t.sku.emptyHighlightHint}
+                        {translationsBySkuId[sku.id]?.highlight ||
+                          translationsBySkuId[sku.id]?.description ||
+                          t.sku.emptyHighlightHint}
                       </p>
                     </div>
 
@@ -460,7 +564,7 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
                           {t.sku.specPackaging}
                         </div>
                         <div className="text-[15px] font-medium text-[#141414] mt-0.5 truncate">
-                          {sku.packaging || '—'}
+                          {translationsBySkuId[sku.id]?.packaging || '—'}
                         </div>
                       </div>
                     </div>
@@ -476,11 +580,13 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
       {/* Slide-Over Detail Editor when a SKU card is clicked */}
       <SkuEditorSheet
         sku={editingSku}
+        translation={editingTranslation}
         seriesName={series.name}
         seriesDefaultImage={series.imageUrl}
         isNew={isCreatingNew}
         onClose={() => {
           setEditingSku(null);
+          setEditingTranslation(null);
           setIsCreatingNew(false);
         }}
         onSave={handleSaveSku}

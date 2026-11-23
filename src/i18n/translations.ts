@@ -1,5 +1,3 @@
-import { Locale } from './localeStorage';
-
 export interface TranslationDictionary {
   meta: {
     pageTitle: string;
@@ -11,8 +9,10 @@ export interface TranslationDictionary {
     menuHeader: string;
     activeTag: string;
     options: {
-      zh: string;
+      'zh-CN': string;
       en: string;
+      fr: string;
+      ar: string;
     };
   };
   common: {
@@ -421,8 +421,8 @@ export interface TranslationDictionary {
   errors: Record<string, string>;
 }
 
-export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
-  zh: {
+export const TRANSLATIONS: Record<'zh-CN' | 'en', TranslationDictionary> = {
+  'zh-CN': {
     meta: {
       pageTitle: '人头马 AI SHOWCASE 展示柜后台管理系统',
       defaultStoreName: '上海静安旗舰店',
@@ -433,8 +433,10 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       menuHeader: '切换界面语言',
       activeTag: '当前',
       options: {
-        zh: '简体中文',
+        'zh-CN': '简体中文',
         en: '英文',
+        fr: '法语',
+        ar: '阿拉伯语',
       },
     },
     common: {
@@ -895,8 +897,10 @@ export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
       menuHeader: 'Select Interface Language',
       activeTag: 'Active',
       options: {
-        zh: 'Simplified Chinese',
+        'zh-CN': 'Simplified Chinese',
         en: 'English',
+        fr: 'French',
+        ar: 'Arabic',
       },
     },
     common: {

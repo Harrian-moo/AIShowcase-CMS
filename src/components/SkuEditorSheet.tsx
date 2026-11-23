@@ -1,16 +1,17 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { useNativeDialog } from '../hooks/useNativeDialog';
 import { useLanguage } from '../i18n/LanguageContext';
-import { ProductSku } from '../types/cms';
+import { ProductSku, SkuTranslation, SkuTranslationPayload } from '../types/cms';
 import { SubjectCropDialog } from './SubjectCropDialog';
 
 interface SkuEditorSheetProps {
   sku: ProductSku | null;
+  translation: SkuTranslation | null;
   seriesName: string;
   seriesDefaultImage: string;
   isNew: boolean;
   onClose: () => void;
-  onSave: (sku: ProductSku) => Promise<void>;
+  onSave: (sku: ProductSku, translation: SkuTranslationPayload) => Promise<void>;
   onDelete?: (skuId: string) => Promise<void>;
   onUploadImage: (file: File) => Promise<string>;
   onGenerateStandardImage: (file: File) => Promise<string>;
@@ -18,6 +19,7 @@ interface SkuEditorSheetProps {
 
 export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
   sku,
+  translation,
   seriesName,
   seriesDefaultImage,
   isNew,
@@ -27,9 +29,12 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
   onUploadImage,
   onGenerateStandardImage,
 }) => {
-  const { locale, t, localizeError } = useLanguage();
+  const { t, localizeError } = useLanguage();
   const titleId = useId();
   const [draft, setDraft] = useState<ProductSku | null>(sku);
+  const [translationDraft, setTranslationDraft] = useState<SkuTranslation | null>(
+    translation
+  );
   const [confirmDelete, setConfirmDelete] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -43,7 +48,7 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const isOpen = sku !== null;
+  const isOpen = sku !== null && translation !== null;
   const dialogRef = useNativeDialog({
     isOpen,
     onClose,
@@ -52,19 +57,28 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
   });
 
   useEffect(() => {
-    if (sku) {
+    if (sku && translation) {
       setDraft(sku);
+      setTranslationDraft(translation);
       setConfirmDelete(false);
       setOriginalImageBeforeCrop(null);
       setIsCropDialogOpen(false);
       setImageProcessNotice('');
       setErrorMessage('');
     }
-  }, [sku]);
+  }, [sku, translation]);
 
   const updateField = <K extends keyof ProductSku>(key: K, value: ProductSku[K]) => {
     setErrorMessage('');
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
+  const updateTranslationField = <K extends keyof SkuTranslationPayload>(
+    key: K,
+    value: SkuTranslationPayload[K]
+  ) => {
+    setErrorMessage('');
+    setTranslationDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,16 +121,25 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSaving || !draft) return;
+    if (isSaving || !draft || !translationDraft) return;
 
     setIsSaving(true);
     setErrorMessage('');
     try {
-      await onSave({
-        ...draft,
-        name: draft.name.trim() || t.skuSheet.fallbackName(seriesName),
-        skuCode: draft.skuCode.trim() || `RM-${seriesName.toUpperCase()}-NEW`,
-      });
+      await onSave(
+        {
+          ...draft,
+          skuCode: draft.skuCode.trim() || `RM-${seriesName.toUpperCase()}-NEW`,
+        },
+        {
+          name:
+            translationDraft.name.trim() || t.skuSheet.fallbackName(seriesName),
+          packaging: translationDraft.packaging,
+          highlight: translationDraft.highlight,
+          description: translationDraft.description,
+          servingSuggestion: translationDraft.servingSuggestion,
+        }
+      );
     } catch (error) {
       setErrorMessage(localizeError(error, t.skuSheet.saveErrorFallback));
     } finally {
@@ -144,7 +167,7 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
       aria-labelledby={titleId}
       className="mwg-drawer"
     >
-      {draft && (
+      {draft && translationDraft && (
         <div className="w-full h-full bg-white border-l border-[#141414] shadow-[-16px_0_48px_rgba(20,20,20,0.12)] flex flex-col">
           {/* Header */}
           <div className="px-8 py-6 border-b border-[#E6E0D4] flex items-center justify-between gap-6 shrink-0">
@@ -158,7 +181,7 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                 id={titleId}
                 className="text-[20px] font-semibold text-[#141414] mt-1 truncate"
               >
-                {(locale === 'en' ? draft.englishName : draft.name) ||
+                {translationDraft.name ||
                   draft.name ||
                   draft.englishName ||
                   t.skuSheet.unnamedProduct}
@@ -196,9 +219,7 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                   <img
                     src={draft.imageUrl}
                     alt={
-                      (locale === 'en' ? draft.englishName : draft.name) ||
-                      draft.name ||
-                      draft.englishName
+                      translationDraft.name || draft.name || draft.englishName
                     }
                     width={84}
                     height={112}
@@ -331,9 +352,9 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                     id="sku-name"
                     type="text"
                     required
-                    value={locale === 'en' ? draft.englishName : draft.name}
+                    value={translationDraft.name}
                     onChange={(e) =>
-                      updateField(locale === 'en' ? 'englishName' : 'name', e.target.value)
+                      updateTranslationField('name', e.target.value)
                     }
                     placeholder={t.skuSheet.namePlaceholder}
                     className="w-full px-3.5 py-2.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] hover:bg-[#F5F1E9] text-[14px] text-[#141414] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
@@ -448,8 +469,10 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                   <input
                     id="sku-packaging"
                     type="text"
-                    value={draft.packaging}
-                    onChange={(e) => updateField('packaging', e.target.value)}
+                    value={translationDraft.packaging}
+                    onChange={(e) =>
+                      updateTranslationField('packaging', e.target.value)
+                    }
                     placeholder={t.skuSheet.packagingPlaceholder}
                     className="w-full px-3.5 py-2.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] hover:bg-[#F5F1E9] text-[14px] text-[#141414] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                   />
@@ -491,8 +514,10 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                 <input
                   id="sku-highlight"
                   type="text"
-                  value={draft.highlight}
-                  onChange={(e) => updateField('highlight', e.target.value)}
+                  value={translationDraft.highlight}
+                  onChange={(e) =>
+                    updateTranslationField('highlight', e.target.value)
+                  }
                   placeholder={t.skuSheet.highlightPlaceholder}
                   className="w-full px-3.5 py-2.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] hover:bg-[#F5F1E9] text-[14px] text-[#141414] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                 />
@@ -508,8 +533,10 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                 <textarea
                   id="sku-description"
                   rows={3}
-                  value={draft.description}
-                  onChange={(e) => updateField('description', e.target.value)}
+                  value={translationDraft.description}
+                  onChange={(e) =>
+                    updateTranslationField('description', e.target.value)
+                  }
                   placeholder={t.skuSheet.descriptionPlaceholder}
                   className="mwg-auto-textarea w-full px-3.5 py-2.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] hover:bg-[#F5F1E9] text-[14px] leading-relaxed text-[#141414] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                 />
@@ -525,8 +552,10 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
                 <textarea
                   id="sku-serving"
                   rows={2}
-                  value={draft.servingSuggestion}
-                  onChange={(e) => updateField('servingSuggestion', e.target.value)}
+                  value={translationDraft.servingSuggestion}
+                  onChange={(e) =>
+                    updateTranslationField('servingSuggestion', e.target.value)
+                  }
                   placeholder={t.skuSheet.servingPlaceholder}
                   className="mwg-auto-textarea--compact w-full px-3.5 py-2.5 bg-[#FAF8F4] border border-transparent border-b-[#D8CEBC] hover:bg-[#F5F1E9] text-[14px] leading-relaxed text-[#141414] focus:bg-white focus:border-[#141414] focus:outline-none transition-colors"
                 />

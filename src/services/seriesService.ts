@@ -3,6 +3,8 @@ import {
   CreateSeriesPayload,
   ProductSeries,
   SeriesBasicInfo,
+  SeriesTranslation,
+  SeriesTranslationPayload,
   UpdateSeriesBasicInfoPayload,
   UpdateSeriesPayload,
 } from '../types/cms';
@@ -26,6 +28,24 @@ function toBasicInfo(series: ProductSeries): SeriesBasicInfo {
 }
 
 export const seriesService = {
+  async listTranslations(seriesId: string): Promise<SeriesTranslation[]> {
+    return httpRequest<SeriesTranslation[]>(
+      `/series/${encodeURIComponent(seriesId)}/translations`,
+      { method: 'GET' }
+    );
+  },
+
+  async updateTranslation(
+    seriesId: string,
+    locale: SeriesTranslation['locale'],
+    payload: SeriesTranslationPayload
+  ): Promise<SeriesTranslation> {
+    return httpRequest<SeriesTranslation>(
+      `/series/${encodeURIComponent(seriesId)}/translations/${encodeURIComponent(locale)}`,
+      { method: 'PUT', body: payload }
+    );
+  },
+
   async listBasicSeries(deviceId: string): Promise<SeriesBasicInfo[]> {
     if (!API_CONFIG.useRealSeriesApi) {
       const series = await mockBackend.listSeries(deviceId);

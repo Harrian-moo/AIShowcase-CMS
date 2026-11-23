@@ -1,3 +1,5 @@
+import type { Locale } from '../i18n/localeStorage';
+
 export interface TastingNotes {
   aromaLabel: string;
   aromaValue: string;
@@ -193,6 +195,33 @@ export type UpdateSeriesPayload = Omit<ProductSeries, 'id' | 'skus' | 'updatedAt
 export type CreateSkuPayload = Omit<ProductSku, 'id' | 'seriesId' | 'updatedAt'>;
 
 export type UpdateSkuPayload = Omit<ProductSku, 'id' | 'seriesId' | 'updatedAt'>;
+
+export interface SeriesTranslationPayload {
+  name: string;
+  subtitle: string;
+  tagline: string;
+  description: string;
+  tasting: TastingNotes;
+  origin: string;
+}
+
+export interface SeriesTranslation extends SeriesTranslationPayload {
+  locale: Locale;
+  updatedAt: string;
+}
+
+export interface SkuTranslationPayload {
+  name: string;
+  packaging: string;
+  highlight: string;
+  description: string;
+  servingSuggestion: string;
+}
+
+export interface SkuTranslation extends SkuTranslationPayload {
+  locale: Locale;
+  updatedAt: string;
+}
 
 export interface UploadMediaResult {
   url: string;

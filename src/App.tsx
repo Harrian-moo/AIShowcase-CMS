@@ -314,7 +314,7 @@ export default function App() {
           devices={devices}
           activeDeviceId={activeDevice?.id ?? ''}
           storeName={
-            locale === 'en'
+            locale !== 'zh-CN'
               ? /[\u4e00-\u9fff]/.test(session.user.storeName)
                 ? t.meta.defaultStoreName
                 : session.user.storeName || t.meta.defaultStoreName

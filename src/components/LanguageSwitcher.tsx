@@ -1,9 +1,15 @@
 import React, { useId, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Locale } from '../i18n/localeStorage';
 
-const LOCALE_OPTIONS: Locale[] = ['zh', 'en'];
+const LOCALE_OPTIONS: Array<{ code: Locale; compact: string; label: string }> = [
+  { code: 'zh-CN', compact: '中', label: '简体中文' },
+  { code: 'en', compact: 'EN', label: 'English' },
+  { code: 'fr', compact: 'FR', label: 'Français' },
+  { code: 'ar', compact: 'ع', label: 'العربية' },
+];
 
 function supportsAnchorPositioning(): boolean {
   return (
@@ -15,7 +21,8 @@ function supportsAnchorPositioning(): boolean {
 }
 
 export const LanguageSwitcher: React.FC = () => {
-  const { locale, setLocale, t } = useLanguage();
+  const { locale, setLocale } = useLanguage();
+  const { t: translate } = useTranslation();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [fallbackCoords, setFallbackCoords] = useState<{
     top: number;
@@ -68,7 +75,9 @@ export const LanguageSwitcher: React.FC = () => {
         }
   ) as React.CSSProperties;
 
-  const compactLocaleLabel = locale === 'zh' ? '中' : 'EN';
+  const compactLocaleLabel =
+    LOCALE_OPTIONS.find((option) => option.code === locale)?.compact ?? '中';
+  const menuHeader = translate('language.menuHeader');
 
   return (
     <div className="relative shrink-0">
@@ -80,7 +89,7 @@ export const LanguageSwitcher: React.FC = () => {
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={popoverId}
-        aria-label={t.language.menuHeader}
+        aria-label={menuHeader}
         style={triggerStyle}
         className={`h-10 min-w-[52px] px-2.5 bg-white border text-[12px] transition-colors duration-150 cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A88950] ${
           isOpen
@@ -107,34 +116,36 @@ export const LanguageSwitcher: React.FC = () => {
         id={popoverId}
         popover="auto"
         role="listbox"
-        aria-label={t.language.menuHeader}
+        aria-label={menuHeader}
         onToggle={handleToggle}
         style={popoverStyle}
-        className="mwg-popover mwg-popover--lang w-[176px] bg-white border border-[#D4C8B4] border-t-2 border-t-[#141414] shadow-[0_16px_38px_rgba(20,20,20,0.10)]"
+        className="mwg-popover mwg-popover--lang w-[188px] bg-white border border-[#D4C8B4] border-t-2 border-t-[#141414] shadow-[0_16px_38px_rgba(20,20,20,0.10)]"
       >
         <div className="px-3.5 py-2 border-b border-[#EFEAE0] bg-[#FAF8F4] text-[10px] tracking-[0.14em] text-[#8E7D63] uppercase">
-          {t.language.menuHeader}
+          {menuHeader}
         </div>
         <div className="divide-y divide-[#F2EDE4]">
           {LOCALE_OPTIONS.map((option) => {
-            const isSelected = option === locale;
+            const isSelected = option.code === locale;
             return (
               <button
-                key={option}
+                key={option.code}
                 type="button"
                 role="option"
                 aria-selected={isSelected}
-                onClick={() => handleSelectLocale(option)}
+                onClick={() => handleSelectLocale(option.code)}
                 className={`w-full text-left px-3.5 py-2.5 text-[13px] transition-colors cursor-pointer flex items-center justify-between gap-3 border-l-[3px] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#A88950] ${
                   isSelected
                     ? 'bg-[#FAF7F0] border-l-[#A88950] font-medium text-[#141414]'
                     : 'bg-white border-l-transparent text-[#4A4845] hover:bg-[#FCFBF8] hover:border-l-[#141414] hover:text-[#141414]'
                 }`}
               >
-                <span>{t.language.options[option]}</span>
+                <span lang={option.code} dir={option.code === 'ar' ? 'rtl' : 'ltr'}>
+                  {option.label}
+                </span>
                 {isSelected && (
                   <span className="text-[10px] tracking-[0.1em] text-[#A88950] font-medium shrink-0">
-                    {t.language.activeTag}
+                    {translate('language.activeTag')}
                   </span>
                 )}
               </button>
