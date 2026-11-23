@@ -1,12 +1,23 @@
 from contextlib import asynccontextmanager
+import os
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from poof import (
+    AuthError,
+    PaymentRequiredError,
+    Poof,
+    PoofError,
+    RateLimitError,
+    ValidationError,
+)
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.concurrency import run_in_threadpool
 
 from .database import (
     create_series,
@@ -19,6 +30,10 @@ from .database import (
     update_series,
     update_sku,
 )
+
+
+BACKEND_DIR = Path(__file__).resolve().parent
+load_dotenv(BACKEND_DIR / ".env")
 
 
 class TastingNotes(BaseModel):
@@ -136,7 +151,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="AI Showcase CMS API", lifespan=lifespan)
 
-UPLOADS_DIR = Path(__file__).resolve().parent / "data" / "uploads"
+UPLOADS_DIR = BACKEND_DIR / "data" / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
@@ -198,6 +213,61 @@ async def upload_series_image(
     return {
         "url": f"{base_url}/uploads/{stored_name}",
         "filename": file.filename or stored_name,
+    }
+
+
+def generate_standard_showcase_image(content: bytes) -> bytes:
+    api_key = os.getenv("POOF_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(status_code=503, detail="POOF_API_KEY is not configured")
+
+    base_url = os.getenv("POOF_API_BASE_URL", "https://api.poof.bg/v1").strip()
+    with Poof(api_key=api_key, base_url=base_url, timeout=90) as client:
+        result = client.remove_background(
+            content,
+            format="png",
+            channels="rgb",
+            bg_color="#ffffff",
+            crop=True,
+            padding="8%",
+            width=900,
+            height=1200,
+            fit="contain",
+        )
+    return bytes(result)
+
+
+@app.post("/api/media/standard-showcase", response_model=UploadMediaResult, status_code=201)
+async def create_standard_showcase_image(
+    request: Request, file: UploadFile = File(...)
+) -> dict[str, str]:
+    content = await file.read()
+    if len(content) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image file must not exceed 20 MB")
+    if detect_image_extension(content) is None:
+        raise HTTPException(status_code=400, detail="Only JPG, PNG, WebP and GIF images are supported")
+
+    try:
+        processed = await run_in_threadpool(generate_standard_showcase_image, content)
+    except HTTPException:
+        raise
+    except AuthError as error:
+        raise HTTPException(status_code=502, detail="POOF API authentication failed") from error
+    except PaymentRequiredError as error:
+        raise HTTPException(status_code=402, detail="POOF credits are insufficient") from error
+    except RateLimitError as error:
+        raise HTTPException(status_code=429, detail="POOF request limit reached; please retry later") from error
+    except ValidationError as error:
+        raise HTTPException(status_code=400, detail=f"POOF rejected the image: {error.message}") from error
+    except PoofError as error:
+        raise HTTPException(status_code=502, detail=f"POOF processing failed: {error.message}") from error
+
+    stored_name = f"{uuid4().hex}.png"
+    (UPLOADS_DIR / stored_name).write_bytes(processed)
+    base_url = str(request.base_url).rstrip("/")
+    return {
+        "url": f"{base_url}/uploads/{stored_name}",
+        "filename": f"standard-{Path(file.filename or stored_name).stem}.png",
     }
 
 

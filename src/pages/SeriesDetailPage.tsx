@@ -125,7 +125,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     setImageProcessNotice('');
     const sourceImage = draft.imageUrl;
     try {
-      const uploaded = await mediaService.uploadSeriesImage(file);
+      const uploaded = await mediaService.generateStandardShowcase(file);
       setOriginalImageBeforeCrop((prev) => prev ?? sourceImage);
       updateDraftField('imageUrl', uploaded.url);
       setImageProcessNotice(t.series.subjectCropSavedNotice);

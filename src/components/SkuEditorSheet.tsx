@@ -13,6 +13,7 @@ interface SkuEditorSheetProps {
   onSave: (sku: ProductSku) => Promise<void>;
   onDelete?: (skuId: string) => Promise<void>;
   onUploadImage: (file: File) => Promise<string>;
+  onGenerateStandardImage: (file: File) => Promise<string>;
 }
 
 export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
@@ -24,6 +25,7 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
   onSave,
   onDelete,
   onUploadImage,
+  onGenerateStandardImage,
 }) => {
   const { t, localizeError } = useLanguage();
   const titleId = useId();
@@ -91,7 +93,7 @@ export const SkuEditorSheet: React.FC<SkuEditorSheetProps> = ({
     setImageProcessNotice('');
     const sourceImage = draft.imageUrl;
     try {
-      const url = await onUploadImage(file);
+      const url = await onGenerateStandardImage(file);
       setOriginalImageBeforeCrop((prev) => prev ?? sourceImage);
       updateField('imageUrl', url);
       setImageProcessNotice(t.skuSheet.subjectCropSavedNotice);

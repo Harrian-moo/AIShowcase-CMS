@@ -168,6 +168,15 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
     }
   };
 
+  const handleGenerateStandardImage = async (file: File): Promise<string> => {
+    try {
+      const result = await mediaService.generateStandardShowcase(file);
+      return result.url;
+    } catch (error) {
+      throw new ApiError(localizeError(error, t.skuSheet.subjectCropErrorFallback));
+    }
+  };
+
   return (
     <div className="flex-1 min-w-0 flex flex-col h-screen bg-[#FAF9F6] overflow-hidden">
       {/* Solid White Architectural Header Aligned to 1160px Content Grid */}
@@ -479,6 +488,7 @@ export const SkuManagementPage: React.FC<SkuManagementPageProps> = ({
         onSave={handleSaveSku}
         onDelete={handleDeleteSku}
         onUploadImage={handleUploadImage}
+        onGenerateStandardImage={handleGenerateStandardImage}
       />
     </div>
   );

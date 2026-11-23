@@ -43,6 +43,9 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
     crop: NormalizedCropArea;
   } | null>(null);
   const [crop, setCrop] = useState<NormalizedCropArea>(DEFAULT_CROP);
+  const [displaySize, setDisplaySize] = useState<{ width: number; height: number } | null>(
+    null
+  );
   const [errorMessage, setErrorMessage] = useState('');
   const dialogRef = useNativeDialog({
     isOpen,
@@ -54,6 +57,7 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
   useEffect(() => {
     if (isOpen) {
       setCrop(DEFAULT_CROP);
+      setDisplaySize(null);
       setErrorMessage('');
     }
   }, [imageUrl, isOpen]);
@@ -133,6 +137,17 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
     }
   };
 
+  const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const image = event.currentTarget;
+    const maxWidth = Math.min(window.innerWidth * 0.7, 720);
+    const maxHeight = Math.min(window.innerHeight * 0.58, 640);
+    const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
+    setDisplaySize({
+      width: Math.max(1, Math.round(image.naturalWidth * scale)),
+      height: Math.max(1, Math.round(image.naturalHeight * scale)),
+    });
+  };
+
   if (typeof document === 'undefined') return null;
 
   const clipRight = (1 - crop.x - crop.width) * 100;
@@ -179,7 +194,9 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
                 src={imageUrl}
                 alt={t.cropper.imageAlt}
                 draggable={false}
-                className="block max-h-[58dvh] max-w-full object-contain"
+                onLoad={handleImageLoad}
+                className="block max-w-full object-contain"
+                style={displaySize ?? undefined}
               />
               <div className="pointer-events-none absolute inset-0 bg-[rgba(20,20,20,0.46)]" />
               <img

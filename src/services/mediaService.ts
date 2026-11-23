@@ -8,6 +8,15 @@ import { API_CONFIG } from './config';
 import { httpRequest } from './httpClient';
 
 export const mediaService = {
+  async generateStandardShowcase(file: File): Promise<UploadMediaResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return httpRequest<UploadMediaResult>('/media/standard-showcase', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
   async uploadSeriesImage(file: File): Promise<UploadMediaResult> {
     if (!API_CONFIG.useRealSeriesApi) {
       return mockBackend.uploadImage(file);
