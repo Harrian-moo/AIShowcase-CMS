@@ -1,3 +1,7 @@
+import type { Locale } from './localeStorage';
+import { createArabicTranslations } from './locales/ar';
+import { createFrenchTranslations } from './locales/fr';
+
 export interface TranslationDictionary {
   meta: {
     pageTitle: string;
@@ -421,7 +425,7 @@ export interface TranslationDictionary {
   errors: Record<string, string>;
 }
 
-export const TRANSLATIONS: Record<'zh-CN' | 'en', TranslationDictionary> = {
+const BASE_TRANSLATIONS: Record<'zh-CN' | 'en', TranslationDictionary> = {
   'zh-CN': {
     meta: {
       pageTitle: '人头马 AI SHOWCASE 展示柜后台管理系统',
@@ -1359,4 +1363,10 @@ export const TRANSLATIONS: Record<'zh-CN' | 'en', TranslationDictionary> = {
       NETWORK_ERROR: 'Network connection error. Please try again.',
     },
   },
+};
+
+export const TRANSLATIONS: Record<Locale, TranslationDictionary> = {
+  ...BASE_TRANSLATIONS,
+  fr: createFrenchTranslations(BASE_TRANSLATIONS.en),
+  ar: createArabicTranslations(BASE_TRANSLATIONS.en),
 };

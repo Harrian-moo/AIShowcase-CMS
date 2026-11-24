@@ -22,7 +22,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setLocaleState(next);
   }, []);
 
-  const t = locale === 'zh-CN' ? TRANSLATIONS['zh-CN'] : TRANSLATIONS.en;
+  const t = TRANSLATIONS[locale];
 
   useEffect(() => {
     document.documentElement.lang = locale;
