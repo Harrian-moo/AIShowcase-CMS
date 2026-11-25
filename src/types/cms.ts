@@ -39,6 +39,8 @@ export interface ProductSeries {
   subtitle: string;
   description: string;
   imageUrl: string;
+  /** Last image published to the showcase display. */
+  publishedImageUrl?: string;
   tasting: TastingNotes;
   origin: string;
   abv: string;
@@ -54,6 +56,7 @@ export interface SeriesBasicInfo {
   taglineEn: string;
   description: string;
   imageUrl: string;
+  publishedImageUrl: string;
   tasting: TastingNotes;
   origin: string;
   abv: string;

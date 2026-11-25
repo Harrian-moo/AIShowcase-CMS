@@ -109,6 +109,7 @@ def init_database() -> None:
                 tagline_en TEXT NOT NULL DEFAULT '',
                 description TEXT NOT NULL DEFAULT '',
                 image_url TEXT NOT NULL DEFAULT '',
+                draft_image_url TEXT NOT NULL DEFAULT '',
                 aroma_label TEXT NOT NULL DEFAULT '',
                 aroma_value TEXT NOT NULL DEFAULT '',
                 palate_label TEXT NOT NULL DEFAULT '',
@@ -136,6 +137,15 @@ def init_database() -> None:
         existing_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(product_series)")
         }
+        if "draft_image_url" not in existing_columns:
+            connection.execute(
+                "ALTER TABLE product_series ADD COLUMN draft_image_url TEXT NOT NULL DEFAULT ''"
+            )
+            connection.execute(
+                "UPDATE product_series SET draft_image_url = image_url"
+            )
+            existing_columns.add("draft_image_url")
+
         added_columns: list[str] = []
         for column, definition in content_columns.items():
             if column not in existing_columns:
@@ -156,11 +166,11 @@ def init_database() -> None:
             """
             INSERT OR IGNORE INTO product_series (
                 id, name, subtitle, tagline_zh, tagline_en, description,
-                image_url, aroma_label, aroma_value, palate_label, palate_value,
+                image_url, draft_image_url, aroma_label, aroma_value, palate_label, palate_value,
                 finish_label, finish_value, origin, abv, updated_at
             ) VALUES (
                 :id, :name, :subtitle, :tagline_zh, :tagline_en, :description,
-                :image_url, :aroma_label, :aroma_value, :palate_label, :palate_value,
+                :image_url, :image_url, :aroma_label, :aroma_value, :palate_label, :palate_value,
                 :finish_label, :finish_value, :origin, :abv, :updated_at
             )
             """,
@@ -312,7 +322,8 @@ def _row_to_series(row: sqlite3.Row) -> dict[str, Any]:
         "taglineZh": row["tagline_zh"],
         "taglineEn": row["tagline_en"],
         "description": row["description"],
-        "imageUrl": row["image_url"],
+        "imageUrl": row["draft_image_url"] or row["image_url"],
+        "publishedImageUrl": row["image_url"],
         "tasting": {
             "aromaLabel": row["aroma_label"],
             "aromaValue": row["aroma_value"],
@@ -469,9 +480,9 @@ def create_series(payload: dict[str, Any]) -> dict[str, Any]:
             """
             INSERT INTO product_series (
                 id, name, subtitle, tagline_zh, tagline_en, description,
-                image_url, aroma_label, aroma_value, palate_label, palate_value,
+                image_url, draft_image_url, aroma_label, aroma_value, palate_label, palate_value,
                 finish_label, finish_value, origin, abv, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 series_id,
@@ -480,6 +491,7 @@ def create_series(payload: dict[str, Any]) -> dict[str, Any]:
                 payload["taglineZh"],
                 payload["taglineEn"],
                 payload["description"],
+                payload["imageUrl"],
                 payload["imageUrl"],
                 payload["tasting"]["aromaLabel"],
                 payload["tasting"]["aromaValue"],
@@ -541,6 +553,7 @@ def update_series(series_id: str, payload: dict[str, Any]) -> dict[str, Any] | N
                 tagline_en = ?,
                 description = ?,
                 image_url = ?,
+                draft_image_url = ?,
                 aroma_label = ?,
                 aroma_value = ?,
                 palate_label = ?,
@@ -558,6 +571,7 @@ def update_series(series_id: str, payload: dict[str, Any]) -> dict[str, Any] | N
                 payload["taglineZh"],
                 payload["taglineEn"],
                 payload["description"],
+                payload["imageUrl"],
                 payload["imageUrl"],
                 payload["tasting"]["aromaLabel"],
                 payload["tasting"]["aromaValue"],
@@ -596,6 +610,25 @@ def update_series(series_id: str, payload: dict[str, Any]) -> dict[str, Any] | N
         }
     )
     upsert_series_translation(series_id, "en", english_translation)
+    return get_series(series_id)
+
+
+def update_series_draft_image(
+    series_id: str, image_url: str
+) -> dict[str, Any] | None:
+    updated_at = datetime.now(timezone.utc).isoformat()
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE product_series
+            SET draft_image_url = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (image_url, updated_at, series_id),
+        )
+        if cursor.rowcount == 0:
+            return None
     return get_series(series_id)
 
 

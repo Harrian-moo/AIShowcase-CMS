@@ -196,6 +196,20 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     setImageProcessNotice('');
   };
 
+  const persistImageDraft = async (imageUrl: string) => {
+    const saved = await seriesService.updateDraftImage(series.id, imageUrl);
+    setDraft((prev) => ({
+      ...prev,
+      imageUrl: saved.imageUrl,
+      publishedImageUrl: saved.publishedImageUrl,
+      updatedAt: saved.updatedAt,
+    }));
+    setHasUnsavedChanges((prev) =>
+      prev || saved.imageUrl !== saved.publishedImageUrl
+    );
+    return saved;
+  };
+
   const handleConfirmSeriesImageCrop = async (file: File) => {
     if (isUploading || isCroppingSubject) return;
     setIsUploading(true);
@@ -203,8 +217,8 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     setImageProcessNotice('');
     try {
       const uploaded = await mediaService.uploadSeriesImage(file);
+      await persistImageDraft(uploaded.url);
       setOriginalImageBeforeCrop(null);
-      updateDraftField('imageUrl', uploaded.url);
       setImageProcessNotice(t.series.imageCropSavedNotice);
       setIsUploadCropDialogOpen(false);
       setPendingUploadImageUrl(null);
@@ -223,8 +237,8 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     const sourceImage = draft.imageUrl;
     try {
       const uploaded = await mediaService.generateStandardShowcase(file);
+      await persistImageDraft(uploaded.url);
       setOriginalImageBeforeCrop((prev) => prev ?? sourceImage);
-      updateDraftField('imageUrl', uploaded.url);
       setImageProcessNotice(t.series.subjectCropSavedNotice);
       setIsCropDialogOpen(false);
     } catch (error) {
@@ -234,11 +248,34 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     }
   };
 
-  const handleRestoreOriginalImage = () => {
-    if (!originalImageBeforeCrop) return;
-    updateDraftField('imageUrl', originalImageBeforeCrop);
-    setOriginalImageBeforeCrop(null);
-    setImageProcessNotice('');
+  const handleRestoreOriginalImage = async () => {
+    if (!originalImageBeforeCrop || isUploading || isCroppingSubject) return;
+    setIsUploading(true);
+    setErrorMessage('');
+    try {
+      await persistImageDraft(originalImageBeforeCrop);
+      setOriginalImageBeforeCrop(null);
+      setImageProcessNotice('');
+    } catch (error) {
+      setErrorMessage(localizeError(error, t.series.uploadErrorFallback));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    if (isUploading || isCroppingSubject) return;
+    setIsUploading(true);
+    setErrorMessage('');
+    try {
+      await persistImageDraft('');
+      setOriginalImageBeforeCrop(null);
+      setImageProcessNotice('');
+    } catch (error) {
+      setErrorMessage(localizeError(error, t.series.uploadErrorFallback));
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSaveSeries = async () => {
@@ -498,7 +535,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                       {originalImageBeforeCrop && (
                         <button
                           type="button"
-                          disabled={isCroppingSubject}
+                          disabled={isUploading || isCroppingSubject}
                           onClick={handleRestoreOriginalImage}
                           className="px-2.5 py-2 text-[13.5px] text-[#7A6136] hover:text-[#141414] transition-colors cursor-pointer whitespace-nowrap"
                         >
@@ -507,12 +544,8 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                       )}
                       <button
                         type="button"
-                        disabled={isCroppingSubject}
-                        onClick={() => {
-                          setOriginalImageBeforeCrop(null);
-                          setImageProcessNotice('');
-                          updateDraftField('imageUrl', '');
-                        }}
+                        disabled={isUploading || isCroppingSubject}
+                        onClick={handleRemoveImage}
                         className="px-2.5 py-2 text-[13.5px] text-[#8E816C] hover:text-[#B9382C] transition-colors cursor-pointer whitespace-nowrap"
                       >
                         {t.series.removeImageButton}

@@ -37,6 +37,7 @@ from .database import (
     upsert_series_translation,
     upsert_sku_translation,
     update_series,
+    update_series_draft_image,
     update_sku,
 )
 
@@ -106,6 +107,7 @@ class SeriesBasicInfo(BaseModel):
     taglineEn: str
     description: str
     imageUrl: str
+    publishedImageUrl: str
     tasting: TastingNotes
     origin: str
     abv: str
@@ -124,6 +126,10 @@ class SeriesBasicInfoUpdate(BaseModel):
     tasting: TastingNotes
     origin: str = Field(default="", max_length=300)
     abv: str = Field(default="", max_length=100)
+
+
+class SeriesDraftImageUpdate(BaseModel):
+    imageUrl: str = Field(default="", max_length=5000)
 
 
 class SeriesBasicInfoCreate(BaseModel):
@@ -434,6 +440,19 @@ def read_series_detail(series_id: str) -> dict:
 @app.put("/api/series/{series_id}", response_model=SeriesBasicInfo)
 def save_series_detail(series_id: str, payload: SeriesBasicInfoUpdate) -> dict:
     series = update_series(series_id, payload.model_dump())
+    if series is None:
+        raise HTTPException(status_code=404, detail="Product series not found")
+    return series
+
+
+@app.put(
+    "/api/series/{series_id}/draft-image",
+    response_model=SeriesBasicInfo,
+)
+def save_series_draft_image(
+    series_id: str, payload: SeriesDraftImageUpdate
+) -> dict:
+    series = update_series_draft_image(series_id, payload.imageUrl)
     if series is None:
         raise HTTPException(status_code=404, detail="Product series not found")
     return series

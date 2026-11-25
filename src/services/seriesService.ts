@@ -20,6 +20,7 @@ function toBasicInfo(series: ProductSeries): SeriesBasicInfo {
     taglineEn: series.taglineEn,
     description: series.description,
     imageUrl: series.imageUrl,
+    publishedImageUrl: series.publishedImageUrl ?? series.imageUrl,
     tasting: series.tasting,
     origin: series.origin,
     abv: series.abv,
@@ -92,6 +93,22 @@ export const seriesService = {
       {
         method: 'PUT',
         body: payload,
+      }
+    );
+  },
+
+  async updateDraftImage(
+    seriesId: string,
+    imageUrl: string
+  ): Promise<SeriesBasicInfo> {
+    if (!API_CONFIG.useRealSeriesApi) {
+      throw new Error('Series image drafts require the real series API.');
+    }
+    return httpRequest<SeriesBasicInfo>(
+      `/series/${encodeURIComponent(seriesId)}/draft-image`,
+      {
+        method: 'PUT',
+        body: { imageUrl },
       }
     );
   },
