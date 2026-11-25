@@ -79,6 +79,8 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [pendingUploadImageUrl, setPendingUploadImageUrl] = useState<string | null>(null);
+  const [isUploadCropDialogOpen, setIsUploadCropDialogOpen] = useState<boolean>(false);
   const [isCropDialogOpen, setIsCropDialogOpen] = useState<boolean>(false);
   const [isCroppingSubject, setIsCroppingSubject] = useState<boolean>(false);
   const [originalImageBeforeCrop, setOriginalImageBeforeCrop] = useState<string | null>(
@@ -105,11 +107,19 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     setHasUnsavedChanges(false);
     setConfirmDelete(false);
     setOriginalImageBeforeCrop(null);
+    setPendingUploadImageUrl(null);
+    setIsUploadCropDialogOpen(false);
     setIsCropDialogOpen(false);
     setImageProcessNotice('');
     setErrorMessage('');
     setStatusNotice('');
   }, [deviceId, series.id, series.updatedAt, series.skus.length, series.description]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingUploadImageUrl) URL.revokeObjectURL(pendingUploadImageUrl);
+    };
+  }, [pendingUploadImageUrl]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -174,11 +184,20 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
     }));
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
 
+    const previewUrl = URL.createObjectURL(file);
+    setPendingUploadImageUrl(previewUrl);
+    setIsUploadCropDialogOpen(true);
+    setErrorMessage('');
+    setImageProcessNotice('');
+  };
+
+  const handleConfirmSeriesImageCrop = async (file: File) => {
+    if (isUploading || isCroppingSubject) return;
     setIsUploading(true);
     setErrorMessage('');
     setImageProcessNotice('');
@@ -186,8 +205,11 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
       const uploaded = await mediaService.uploadSeriesImage(file);
       setOriginalImageBeforeCrop(null);
       updateDraftField('imageUrl', uploaded.url);
+      setImageProcessNotice(t.series.imageCropSavedNotice);
+      setIsUploadCropDialogOpen(false);
+      setPendingUploadImageUrl(null);
     } catch (error) {
-      setErrorMessage(localizeError(error, t.series.uploadErrorFallback));
+      throw new Error(localizeError(error, t.series.uploadErrorFallback));
     } finally {
       setIsUploading(false);
     }
@@ -451,7 +473,7 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
                   />
                   <button
                     type="button"
-                    disabled={isUploading || isCroppingSubject}
+                    disabled={isUploading || isCroppingSubject || isUploadCropDialogOpen}
                     onClick={() => fileInputRef.current?.click()}
                     className="px-5 py-2.5 border border-[#141414] bg-white text-[14px] font-medium text-[#141414] hover:bg-[#141414] hover:text-white disabled:opacity-60 transition-colors duration-150 cursor-pointer whitespace-nowrap"
                   >
@@ -831,6 +853,21 @@ export const SeriesDetailPage: React.FC<SeriesDetailPageProps> = ({
           </div>
         </div>
       </dialog>
+
+      <SubjectCropDialog
+        imageUrl={pendingUploadImageUrl ?? ''}
+        isOpen={isUploadCropDialogOpen}
+        isSubmitting={isUploading}
+        mode="series-image"
+        fixedAspectRatio={3 / 4}
+        outputSize={{ width: 900, height: 1200 }}
+        outputFilename="series-image.png"
+        onClose={() => {
+          setIsUploadCropDialogOpen(false);
+          setPendingUploadImageUrl(null);
+        }}
+        onConfirm={handleConfirmSeriesImageCrop}
+      />
 
       <SubjectCropDialog
         imageUrl={draft.imageUrl}

@@ -5,6 +5,11 @@ export interface NormalizedCropArea {
   height: number;
 }
 
+export interface CropOutputSize {
+  width: number;
+  height: number;
+}
+
 function loadImage(imageUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -18,7 +23,8 @@ function loadImage(imageUrl: string): Promise<HTMLImageElement> {
 export async function cropImageToPngFile(
   imageUrl: string,
   crop: NormalizedCropArea,
-  filename = 'product-subject.png'
+  filename = 'product-subject.png',
+  outputSize?: CropOutputSize
 ): Promise<File> {
   const image = await loadImage(imageUrl);
   const sourceX = Math.round(crop.x * image.naturalWidth);
@@ -29,8 +35,8 @@ export async function cropImageToPngFile(
   const outputScale = Math.min(1, maxOutputEdge / Math.max(sourceWidth, sourceHeight));
 
   const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(sourceWidth * outputScale));
-  canvas.height = Math.max(1, Math.round(sourceHeight * outputScale));
+  canvas.width = outputSize?.width ?? Math.max(1, Math.round(sourceWidth * outputScale));
+  canvas.height = outputSize?.height ?? Math.max(1, Math.round(sourceHeight * outputScale));
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas is unavailable');
 

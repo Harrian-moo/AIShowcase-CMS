@@ -2,12 +2,20 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNativeDialog } from '../hooks/useNativeDialog';
 import { useLanguage } from '../i18n/LanguageContext';
-import { cropImageToPngFile, NormalizedCropArea } from '../utils/cropImage';
+import {
+  cropImageToPngFile,
+  CropOutputSize,
+  NormalizedCropArea,
+} from '../utils/cropImage';
 
 interface SubjectCropDialogProps {
   imageUrl: string;
   isOpen: boolean;
   isSubmitting: boolean;
+  mode?: 'subject' | 'series-image';
+  fixedAspectRatio?: number;
+  outputSize?: CropOutputSize;
+  outputFilename?: string;
   onClose: () => void;
   onConfirm: (file: File, crop: NormalizedCropArea) => Promise<void>;
 }
@@ -26,15 +34,43 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function createAspectCrop(imageAspectRatio: number, cropAspectRatio: number) {
+  const insetScale = 0.92;
+  if (imageAspectRatio >= cropAspectRatio) {
+    const height = insetScale;
+    const width = (cropAspectRatio / imageAspectRatio) * height;
+    return {
+      x: (1 - width) / 2,
+      y: (1 - height) / 2,
+      width,
+      height,
+    };
+  }
+
+  const width = insetScale;
+  const height = (imageAspectRatio / cropAspectRatio) * width;
+  return {
+    x: (1 - width) / 2,
+    y: (1 - height) / 2,
+    width,
+    height,
+  };
+}
+
 export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
   imageUrl,
   isOpen,
   isSubmitting,
+  mode = 'subject',
+  fixedAspectRatio,
+  outputSize,
+  outputFilename = 'product-subject.png',
   onClose,
   onConfirm,
 }) => {
   const { t, localizeError } = useLanguage();
   const titleId = useId();
+  const zoomId = useId();
   const imageFrameRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     mode: DragMode;
@@ -46,6 +82,8 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
   const [displaySize, setDisplaySize] = useState<{ width: number; height: number } | null>(
     null
   );
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
+  const [zoom, setZoom] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const dialogRef = useNativeDialog({
     isOpen,
@@ -58,9 +96,25 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
     if (isOpen) {
       setCrop(DEFAULT_CROP);
       setDisplaySize(null);
+      setImageAspectRatio(null);
+      setZoom(0);
       setErrorMessage('');
     }
   }, [imageUrl, isOpen]);
+
+  const isSeriesImageMode = mode === 'series-image';
+  const copy = isSeriesImageMode
+    ? {
+        eyebrow: t.cropper.seriesImageEyebrow,
+        title: t.cropper.seriesImageTitle,
+        description: t.cropper.seriesImageDescription,
+        imageAlt: t.cropper.seriesImageAlt,
+        selectionLabel: t.cropper.seriesImageSelectionLabel,
+        confirm: t.cropper.seriesImageConfirm,
+        saving: t.cropper.seriesImageSaving,
+        errorFallback: t.cropper.seriesImageErrorFallback,
+      }
+    : t.cropper;
 
   const beginDrag = (event: React.PointerEvent<HTMLElement>, mode: DragMode) => {
     if (isSubmitting) return;
@@ -130,15 +184,21 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
     if (isSubmitting) return;
     setErrorMessage('');
     try {
-      const file = await cropImageToPngFile(imageUrl, crop);
+      const file = await cropImageToPngFile(
+        imageUrl,
+        crop,
+        outputFilename,
+        outputSize
+      );
       await onConfirm(file, crop);
     } catch (error) {
-      setErrorMessage(localizeError(error, t.cropper.errorFallback));
+      setErrorMessage(localizeError(error, copy.errorFallback));
     }
   };
 
   const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
     const image = event.currentTarget;
+    const nextImageAspectRatio = image.naturalWidth / image.naturalHeight;
     const maxWidth = Math.min(window.innerWidth * 0.7, 720);
     const maxHeight = Math.min(window.innerHeight * 0.58, 640);
     const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
@@ -146,6 +206,40 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
       width: Math.max(1, Math.round(image.naturalWidth * scale)),
       height: Math.max(1, Math.round(image.naturalHeight * scale)),
     });
+    setImageAspectRatio(nextImageAspectRatio);
+    if (fixedAspectRatio) {
+      setCrop(createAspectCrop(nextImageAspectRatio, fixedAspectRatio));
+    }
+  };
+
+  const updateZoom = (nextZoom: number) => {
+    if (!fixedAspectRatio || !imageAspectRatio) return;
+    const normalizedZoom = clamp(nextZoom, 0, 100);
+    const maximumCrop = createAspectCrop(imageAspectRatio, fixedAspectRatio);
+    const scale = 1 - normalizedZoom * 0.0075;
+    const width = maximumCrop.width * scale;
+    const height = maximumCrop.height * scale;
+
+    setZoom(normalizedZoom);
+    setCrop((current) => {
+      const centerX = current.x + current.width / 2;
+      const centerY = current.y + current.height / 2;
+      return {
+        x: clamp(centerX - width / 2, 0, 1 - width),
+        y: clamp(centerY - height / 2, 0, 1 - height),
+        width,
+        height,
+      };
+    });
+  };
+
+  const resetCrop = () => {
+    setZoom(0);
+    setCrop(
+      fixedAspectRatio && imageAspectRatio
+        ? createAspectCrop(imageAspectRatio, fixedAspectRatio)
+        : DEFAULT_CROP
+    );
   };
 
   if (typeof document === 'undefined') return null;
@@ -163,13 +257,13 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
         <header className="shrink-0 border-b border-[#E6E0D4] px-6 py-5 sm:px-8 flex items-start justify-between gap-6">
           <div>
             <p className="text-[11px] tracking-[0.18em] uppercase text-[#A88950]">
-              {t.cropper.eyebrow}
+              {copy.eyebrow}
             </p>
             <h2 id={titleId} className="mt-1 text-[22px] font-semibold text-[#141414]">
-              {t.cropper.title}
+              {copy.title}
             </h2>
             <p className="mt-2 text-[13px] leading-relaxed text-[#7D7568]">
-              {t.cropper.description}
+              {copy.description}
             </p>
           </div>
           <button
@@ -192,7 +286,7 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
             <div ref={imageFrameRef} className="relative inline-block max-w-full select-none touch-none bg-white shadow-[0_8px_30px_rgba(20,20,20,0.12)]">
               <img
                 src={imageUrl}
-                alt={t.cropper.imageAlt}
+                alt={copy.imageAlt}
                 draggable={false}
                 onLoad={handleImageLoad}
                 className="block max-w-full object-contain"
@@ -224,9 +318,9 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
                 }}
               >
                 <span className="pointer-events-none absolute left-2 top-2 bg-[#141414]/80 px-2 py-1 text-[11px] text-white">
-                  {t.cropper.selectionLabel}
+                  {copy.selectionLabel}
                 </span>
-                {(['nw', 'ne', 'sw', 'se'] as DragMode[]).map((mode) => (
+                {!fixedAspectRatio && (['nw', 'ne', 'sw', 'se'] as DragMode[]).map((mode) => (
                   <span
                     key={mode}
                     role="presentation"
@@ -244,13 +338,35 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
               </div>
             </div>
           </div>
+          {fixedAspectRatio && (
+            <div className="mx-auto mt-5 flex w-full max-w-[520px] items-center gap-4 border border-[#DED6C8] bg-white px-4 py-3">
+              <label id={zoomId} className="shrink-0 text-[13px] text-[#5F594F]" htmlFor={`${zoomId}-range`}>
+                {t.cropper.zoomLabel}
+              </label>
+              <input
+                id={`${zoomId}-range`}
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={zoom}
+                disabled={isSubmitting}
+                onChange={(event) => updateZoom(Number(event.target.value))}
+                className="h-2 min-w-0 flex-1 cursor-pointer accent-[#A88950] disabled:cursor-not-allowed"
+                aria-labelledby={zoomId}
+              />
+              <span className="w-12 shrink-0 text-right text-[12px] tabular-nums text-[#7D7568]">
+                {Math.round(100 / (1 - zoom * 0.0075))}%
+              </span>
+            </div>
+          )}
         </div>
 
         <footer className="shrink-0 border-t border-[#E6E0D4] bg-white px-6 py-4 sm:px-8 flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
             disabled={isSubmitting}
-            onClick={() => setCrop(DEFAULT_CROP)}
+            onClick={resetCrop}
             className="px-3 py-2 text-[13px] text-[#7D7568] hover:text-[#141414] disabled:opacity-50 cursor-pointer"
           >
             {t.cropper.reset}
@@ -270,7 +386,7 @@ export const SubjectCropDialog: React.FC<SubjectCropDialogProps> = ({
               onClick={() => void handleConfirm()}
               className="px-5 py-2.5 bg-[#141414] text-[13px] font-medium text-white hover:bg-[#2F2F2F] disabled:opacity-55 cursor-pointer"
             >
-              {isSubmitting ? t.cropper.saving : t.cropper.confirm}
+              {isSubmitting ? copy.saving : copy.confirm}
             </button>
           </div>
         </footer>
