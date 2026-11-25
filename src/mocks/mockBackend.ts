@@ -704,7 +704,8 @@ export const mockBackend = {
 
   async generateStandbyAdDraft(
     deviceId: string,
-    payload: GenerateAdPayload
+    payload: GenerateAdPayload,
+    generatedImageUrl?: string
   ): Promise<AdHistoryItem> {
     await delay(520);
     const devices = readDevicesDb();
@@ -751,12 +752,12 @@ export const mockBackend = {
       subtitle: trimmedSubtitle,
       ctaText: trimmedCta,
       visualStyle: payload.visualStyle,
-      imageUrl: sku?.imageUrl || series.imageUrl,
+      imageUrl: generatedImageUrl || sku?.imageUrl || series.imageUrl,
       promptBrief: payload.promptBrief?.trim() || undefined,
       createdAt: timestamp,
       expiresAt,
       savedToCarousel: false,
-      isMockGenerated: true,
+      isMockGenerated: !generatedImageUrl,
     };
 
     const nextDevices = [...devices];

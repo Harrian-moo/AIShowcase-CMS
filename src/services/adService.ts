@@ -1,5 +1,6 @@
 import { mockBackend } from '../mocks/mockBackend';
 import {
+  AiAdImageGenerationResult,
   AdHistoryItem,
   GenerateAdPayload,
   SaveHistoryToCarouselPayload,
@@ -36,23 +37,34 @@ export const adService = {
    * Automatically stored in the terminal's recent generation history (e.g. 5 days)
    * without publishing to the active carousel until the operator confirms saving.
    *
-   * Integration point for external AI creative model / plugin:
-   * Wire POST /devices/{deviceId}/standby-ads/generate on the backend (or invoke
-   * your external image/copy generation SDK directly inside this method).
+   * Only image generation is real in this phase. The generated image is then
+   * persisted into the existing local history so the remaining carousel flow
+   * can stay on its current Mock implementation.
    */
   async generateAdDraft(
     deviceId: string,
     payload: GenerateAdPayload
   ): Promise<AdHistoryItem> {
-    if (API_CONFIG.useMockApi) {
+    if (!API_CONFIG.useRealAdGenerationApi) {
       return mockBackend.generateStandbyAdDraft(deviceId, payload);
     }
-    return httpRequest<AdHistoryItem>(
-      `/devices/${encodeURIComponent(deviceId)}/standby-ads/generate`,
+
+    const generated = await httpRequest<AiAdImageGenerationResult>(
+      '/ai-ads/generate',
       {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: {
+          referenceImageUrl: payload.referenceImageUrl,
+          visualStyle: payload.visualStyle,
+          promptBrief: payload.promptBrief,
+        },
+        timeoutMs: 180_000,
       }
+    );
+    return mockBackend.generateStandbyAdDraft(
+      deviceId,
+      payload,
+      generated.imageUrl
     );
   },
 

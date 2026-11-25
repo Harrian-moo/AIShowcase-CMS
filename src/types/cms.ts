@@ -76,6 +76,8 @@ export type DeviceConnectionStatus = 'online' | 'offline';
 
 export type AdVisualStyle =
   | 'luxury-studio'
+  | 'sunlit-estate'
+  /** Legacy value retained for existing locally stored carousel items. */
   | 'nocturne-lounge'
   | 'festive-gifting'
   | 'modern-french';
@@ -246,12 +248,21 @@ export interface WhiteBackgroundProcessResult {
 export interface GenerateAdPayload {
   seriesId: string;
   skuId?: string;
+  referenceImageUrl: string;
   visualStyle: AdVisualStyle;
   copyMode: AdCopyMode;
   title?: string;
   subtitle?: string;
   ctaText?: string;
   promptBrief?: string;
+}
+
+export interface AiAdImageGenerationResult {
+  imageUrl: string;
+  provider: string;
+  model: string;
+  visualStyle: AdVisualStyle;
+  variantIndex: number;
 }
 
 export interface UpdateAdPayload {

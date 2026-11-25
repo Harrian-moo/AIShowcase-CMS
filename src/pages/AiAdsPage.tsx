@@ -25,7 +25,7 @@ interface AiAdsPageProps {
 
 const VISUAL_STYLES: AdVisualStyle[] = [
   'luxury-studio',
-  'nocturne-lounge',
+  'sunlit-estate',
   'festive-gifting',
   'modern-french',
 ];
@@ -43,6 +43,16 @@ function formatLocalDateKey(date: Date): string {
 
 function getPosterThemeClasses(style: AdVisualStyle) {
   switch (style) {
+    case 'sunlit-estate':
+      return {
+        canvas: 'bg-[#F7F3E8] text-[#24301E]',
+        eyebrow: 'text-[#8B713D]',
+        title: 'text-[#24301E]',
+        subtitle: 'text-[#66705B]',
+        divider: 'bg-[#BBA66E]/55',
+        cta: 'border-[#8B713D] text-[#6F592F]',
+        imgBlend: 'mix-blend-multiply',
+      };
     case 'nocturne-lounge':
       return {
         canvas: 'bg-[#141414] text-white',
@@ -244,7 +254,7 @@ export const AiAdsPage: React.FC<AiAdsPageProps> = ({
     seriesList[0]?.id ?? ''
   );
   const [targetSkuId, setTargetSkuId] = useState<string>('');
-  const [visualStyle, setVisualStyle] = useState<AdVisualStyle>('nocturne-lounge');
+  const [visualStyle, setVisualStyle] = useState<AdVisualStyle>('sunlit-estate');
   const [copyMode, setCopyMode] = useState<AdCopyMode>('with-copy');
   const [genTitle, setGenTitle] = useState<string>('');
   const [genSubtitle, setGenSubtitle] = useState<string>('');
@@ -553,7 +563,7 @@ export const AiAdsPage: React.FC<AiAdsPageProps> = ({
   };
 
   const handleGenerateAd = async () => {
-    if (!targetSeriesId || isGenerating) return;
+    if (!targetSeriesId || !targetSeries || isGenerating) return;
     setIsGenerating(true);
     setErrorMessage('');
     setGeneratorNotice('');
@@ -561,6 +571,10 @@ export const AiAdsPage: React.FC<AiAdsPageProps> = ({
       const createdHistory = await adService.generateAdDraft(deviceId, {
         seriesId: targetSeriesId,
         skuId: targetSkuId || undefined,
+        referenceImageUrl: new URL(
+          targetSku?.imageUrl || targetSeries.imageUrl,
+          window.location.origin
+        ).toString(),
         visualStyle,
         copyMode,
         title: copyMode === 'with-copy' ? genTitle : undefined,

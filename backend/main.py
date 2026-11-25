@@ -1,9 +1,12 @@
 from contextlib import asynccontextmanager
+import base64
 import os
 from pathlib import Path
 from typing import Literal
+from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +22,8 @@ from poof import (
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
+from .ai_ads.provider import ImageGenerationError, get_image_generation_provider
+from .ai_ads.styles import AdVisualStyle, build_style_prompt
 from .database import (
     create_series,
     create_sku,
@@ -141,6 +146,22 @@ class UploadMediaResult(BaseModel):
     filename: str
 
 
+class AiAdGenerationPayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    referenceImageUrl: str = Field(min_length=1, max_length=5000)
+    visualStyle: AdVisualStyle
+    promptBrief: str | None = Field(default=None, max_length=500)
+
+
+class AiAdGenerationResult(BaseModel):
+    imageUrl: str
+    provider: str
+    model: str
+    visualStyle: AdVisualStyle
+    variantIndex: int
+
+
 class SkuInfo(BaseModel):
     id: str
     seriesId: str
@@ -202,6 +223,8 @@ app = FastAPI(title="AI Showcase CMS API", lifespan=lifespan)
 
 UPLOADS_DIR = BACKEND_DIR / "data" / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+AI_AD_UPLOADS_DIR = UPLOADS_DIR / "ai-ads"
+AI_AD_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 app.add_middleware(
@@ -306,6 +329,88 @@ def generate_standard_showcase_image(content: bytes) -> bytes:
             fit="contain",
         )
     return bytes(result)
+
+
+def load_reference_image_as_data_uri(image_url: str) -> str:
+    parsed = urlparse(image_url)
+    content: bytes
+
+    if parsed.path.startswith("/uploads/") and parsed.hostname in {
+        None,
+        "localhost",
+        "127.0.0.1",
+    }:
+        relative_path = unquote(parsed.path.removeprefix("/uploads/")).replace("/", os.sep)
+        candidate = (UPLOADS_DIR / relative_path).resolve()
+        if UPLOADS_DIR.resolve() not in candidate.parents:
+            raise HTTPException(status_code=400, detail="Invalid reference image path")
+        if not candidate.is_file():
+            raise HTTPException(status_code=404, detail="Reference image not found")
+        content = candidate.read_bytes()
+    elif parsed.scheme in {"http", "https"}:
+        try:
+            with httpx.Client(timeout=30, follow_redirects=True) as client:
+                response = client.get(image_url)
+                response.raise_for_status()
+                content = response.content
+        except httpx.HTTPError as error:
+            raise HTTPException(
+                status_code=400, detail="Unable to read the reference image"
+            ) from error
+    else:
+        raise HTTPException(status_code=400, detail="Invalid reference image URL")
+
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Reference image must not exceed 10 MB")
+
+    extension = detect_image_extension(content)
+    media_type = {
+        ".jpg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+    }.get(extension or "")
+    if media_type is None:
+        raise HTTPException(status_code=400, detail="Unsupported reference image format")
+
+    encoded = base64.b64encode(content).decode("ascii")
+    return f"data:{media_type};base64,{encoded}"
+
+
+@app.post(
+    "/api/ai-ads/generate",
+    response_model=AiAdGenerationResult,
+    status_code=201,
+)
+async def generate_ai_ad_image(
+    request: Request, payload: AiAdGenerationPayload
+) -> dict[str, str | int]:
+    style_prompt = build_style_prompt(payload.visualStyle, payload.promptBrief)
+
+    try:
+        reference_image = await run_in_threadpool(
+            load_reference_image_as_data_uri, payload.referenceImageUrl
+        )
+        provider = get_image_generation_provider()
+        generated = await run_in_threadpool(
+            provider.generate, reference_image, style_prompt.prompt
+        )
+    except HTTPException:
+        raise
+    except ImageGenerationError as error:
+        status_code = 503 if "not configured" in str(error).lower() else 502
+        raise HTTPException(status_code=status_code, detail=str(error)) from error
+
+    stored_name = f"{uuid4().hex}{generated.extension}"
+    (AI_AD_UPLOADS_DIR / stored_name).write_bytes(generated.content)
+    base_url = str(request.base_url).rstrip("/")
+    return {
+        "imageUrl": f"{base_url}/uploads/ai-ads/{stored_name}",
+        "provider": generated.provider,
+        "model": generated.model,
+        "visualStyle": payload.visualStyle,
+        "variantIndex": style_prompt.variant_index,
+    }
 
 
 @app.post("/api/media/standard-showcase", response_model=UploadMediaResult, status_code=201)

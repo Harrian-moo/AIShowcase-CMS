@@ -325,6 +325,7 @@ export interface TranslationDictionary {
     visualStyleLabel: string;
     visualStyles: {
       'luxury-studio': string;
+      'sunlit-estate': string;
       'nocturne-lounge': string;
       'festive-gifting': string;
       'modern-french': string;
@@ -762,6 +763,7 @@ const BASE_TRANSLATIONS: Record<'zh-CN' | 'en', TranslationDictionary> = {
       visualStyleLabel: '画面视觉风格',
       visualStyles: {
         'luxury-studio': '高奢静物',
+        'sunlit-estate': '阳光庄园',
         'nocturne-lounge': '暗调酒廊',
         'festive-gifting': '节庆礼赠',
         'modern-french': '现代法式',
@@ -1235,6 +1237,7 @@ const BASE_TRANSLATIONS: Record<'zh-CN' | 'en', TranslationDictionary> = {
       visualStyleLabel: 'Visual Atmosphere',
       visualStyles: {
         'luxury-studio': 'Luxury Studio',
+        'sunlit-estate': 'Sunlit Estate',
         'nocturne-lounge': 'Nocturne Lounge',
         'festive-gifting': 'Festive Gifting',
         'modern-french': 'Modern French',

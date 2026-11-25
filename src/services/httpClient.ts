@@ -6,6 +6,7 @@ import { API_CONFIG, AUTH_SESSION_STORAGE_KEY } from './config';
 interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
   skipAuth?: boolean;
+  timeoutMs?: number;
 }
 
 function getStoredAccessToken(): string | null {
@@ -57,9 +58,15 @@ export async function httpRequest<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { body, headers, skipAuth = false, ...rest } = options;
+  const {
+    body,
+    headers,
+    skipAuth = false,
+    timeoutMs = API_CONFIG.timeoutMs,
+    ...rest
+  } = options;
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), API_CONFIG.timeoutMs);
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   const requestHeaders = new Headers(headers);
