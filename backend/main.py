@@ -1,12 +1,11 @@
 from contextlib import asynccontextmanager
-import base64
+import ipaddress
 import os
 from pathlib import Path
 from typing import Literal
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
 from uuid import uuid4
 
-import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -331,50 +330,27 @@ def generate_standard_showcase_image(content: bytes) -> bytes:
     return bytes(result)
 
 
-def load_reference_image_as_data_uri(image_url: str) -> str:
+def normalize_public_reference_image_url(image_url: str) -> str:
     parsed = urlparse(image_url)
-    content: bytes
-
-    if parsed.path.startswith("/uploads/") and parsed.hostname in {
-        None,
-        "localhost",
-        "127.0.0.1",
-    }:
-        relative_path = unquote(parsed.path.removeprefix("/uploads/")).replace("/", os.sep)
-        candidate = (UPLOADS_DIR / relative_path).resolve()
-        if UPLOADS_DIR.resolve() not in candidate.parents:
-            raise HTTPException(status_code=400, detail="Invalid reference image path")
-        if not candidate.is_file():
-            raise HTTPException(status_code=404, detail="Reference image not found")
-        content = candidate.read_bytes()
-    elif parsed.scheme in {"http", "https"}:
-        try:
-            with httpx.Client(timeout=30, follow_redirects=True) as client:
-                response = client.get(image_url)
-                response.raise_for_status()
-                content = response.content
-        except httpx.HTTPError as error:
-            raise HTTPException(
-                status_code=400, detail="Unable to read the reference image"
-            ) from error
-    else:
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise HTTPException(status_code=400, detail="Invalid reference image URL")
 
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Reference image must not exceed 10 MB")
+    hostname = parsed.hostname.lower()
+    is_private = hostname == "localhost"
+    try:
+        is_private = is_private or ipaddress.ip_address(hostname).is_private
+    except ValueError:
+        pass
+    if is_private:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Seedream 4.6 requires a publicly accessible reference image URL; "
+                "local uploads must be placed in public object storage first"
+            ),
+        )
 
-    extension = detect_image_extension(content)
-    media_type = {
-        ".jpg": "image/jpeg",
-        ".png": "image/png",
-        ".gif": "image/gif",
-        ".webp": "image/webp",
-    }.get(extension or "")
-    if media_type is None:
-        raise HTTPException(status_code=400, detail="Unsupported reference image format")
-
-    encoded = base64.b64encode(content).decode("ascii")
-    return f"data:{media_type};base64,{encoded}"
+    return image_url
 
 
 @app.post(
@@ -388,8 +364,8 @@ async def generate_ai_ad_image(
     style_prompt = build_style_prompt(payload.visualStyle, payload.promptBrief)
 
     try:
-        reference_image = await run_in_threadpool(
-            load_reference_image_as_data_uri, payload.referenceImageUrl
+        reference_image = normalize_public_reference_image_url(
+            payload.referenceImageUrl
         )
         provider = get_image_generation_provider()
         generated = await run_in_threadpool(
